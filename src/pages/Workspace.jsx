@@ -74,8 +74,7 @@ const Workspace = () => {
             const researchRes = await fetch('/api/research', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ projectId, userId: user?.id, query: fullQuery, documentText })
             });
@@ -88,8 +87,7 @@ const Workspace = () => {
             const simulateRes = await fetch('/api/simulate', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ projectId, proposedSolution: fullQuery })
             });
@@ -140,8 +138,7 @@ const Workspace = () => {
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ projectId: currentProjectId, message: userMessage })
             });
