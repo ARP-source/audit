@@ -1,5 +1,12 @@
 // Shared Gemini API helper with automatic model fallback
-const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+// Models ordered by quality — tries best first, falls back on rate limit
+const MODELS = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b'
+];
 
 export async function callGemini(payload) {
     for (const model of MODELS) {
