@@ -57,7 +57,7 @@ const Workspace = () => {
             }
 
             // Step 1: Research
-            const researchRes = await fetch('http://localhost:3001/api/research', {
+            const researchRes = await fetch('/api/research', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -71,7 +71,7 @@ const Workspace = () => {
 
             // Step 2: Simulate
             setLoadingState("simulate");
-            const simulateRes = await fetch('http://localhost:3001/api/simulate', {
+            const simulateRes = await fetch('/api/simulate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -123,7 +123,7 @@ const Workspace = () => {
         setChatHistory(prev => [...prev, { role: 'system', text: 'Querying project matrix...' }]);
 
         try {
-            const res = await fetch('http://localhost:3001/api/chat', {
+            const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
