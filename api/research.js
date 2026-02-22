@@ -16,13 +16,33 @@ export default async function handler(req, res) {
         const supabaseOptions = token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : {};
         const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, supabaseOptions);
 
-        const tavilyRes = await fetch('https://api.tavily.com/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query, include_answer: true })
-        });
-        const tavilyData = await tavilyRes.json();
-        const context = tavilyData.results?.map(r => r.content).join('\n') || '';
+        // Extract company name from the query for targeted searches
+        const companyMatch = query.match(/Company:\s*([^.]+)/);
+        const company = companyMatch ? companyMatch[1].trim() : query;
+        const objectiveMatch = query.match(/Task\/Objective:\s*(.+)/);
+        const objective = objectiveMatch ? objectiveMatch[1].trim() : '';
+
+        // Run 4 parallel targeted Tavily searches for deeper research
+        const searchQueries = [
+            { label: 'Company Overview', q: `${company} company overview background history` },
+            { label: 'Competitive Landscape', q: `${company} competitors market share industry` },
+            { label: 'Industry Trends', q: `${company} ${objective} industry trends 2024 2025` },
+            { label: 'Risks & News', q: `${company} risks challenges recent news` }
+        ];
+
+        const searchPromises = searchQueries.map(({ label, q }) =>
+            fetch('https://api.tavily.com/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query: q, include_answer: true, max_results: 5 })
+            })
+                .then(r => r.json())
+                .then(data => `\n--- ${label} ---\n${data.answer || ''}\n${data.results?.map(r => r.content).join('\n') || ''}`)
+                .catch(() => `\n--- ${label} ---\nSearch failed.`)
+        );
+
+        const searchResults = await Promise.all(searchPromises);
+        const context = searchResults.join('\n\n');
 
         const llmRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.LLM_API_KEY}`, {
             method: 'POST',

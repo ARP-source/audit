@@ -55,13 +55,21 @@ const Navbar = () => {
                     </a>
                 </div>
 
-                <button
-                    onClick={() => navigate('/workspace')}
-                    className="group relative overflow-hidden bg-ivory/10 hover:bg-champagne text-ivory/90 hover:text-obsidian text-sm font-semibold px-6 py-2 rounded-full transition-all duration-300 hover:scale-[1.03] active:scale-100 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] shadow-[0_0_0_1px_rgba(250,248,245,0.1)] hover:shadow-[0_0_20px_rgba(201,168,76,0.4)]"
-                >
-                    <span className="relative z-10">{isWorkspace ? 'Active' : 'Initiate Workspace'}</span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => navigate('/history')}
+                        className="text-sm font-medium text-ivory/50 hover:text-champagne transition-colors duration-300"
+                    >
+                        My Audits
+                    </button>
+                    <button
+                        onClick={() => navigate('/workspace')}
+                        className="group relative overflow-hidden bg-ivory/10 hover:bg-champagne text-ivory/90 hover:text-obsidian text-sm font-semibold px-6 py-2 rounded-full transition-all duration-300 hover:scale-[1.03] active:scale-100 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] shadow-[0_0_0_1px_rgba(250,248,245,0.1)] hover:shadow-[0_0_20px_rgba(201,168,76,0.4)]"
+                    >
+                        <span className="relative z-10">{isWorkspace ? 'Active' : 'Initiate Workspace'}</span>
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
+                    </button>
+                </div>
             </nav>
             {/* Scope styles specifically for the scrolled state */}
             <style>{`

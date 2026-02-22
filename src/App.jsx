@@ -6,6 +6,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
 import Workspace from './pages/Workspace';
+import History from './pages/History';
 import Auth from './pages/Auth';
 import CitationDrawer from './components/CitationDrawer';
 import { AuthProvider } from './context/AuthContext';
@@ -31,7 +32,7 @@ const ScrollToTop = () => {
 // Hide Navbar on workspace and auth pages
 const NavbarWrapper = () => {
   const { pathname } = useLocation();
-  if (pathname === '/workspace' || pathname === '/auth') return null;
+  if (pathname === '/workspace' || pathname === '/auth' || pathname === '/history') return null;
   return <Navbar />;
 }
 
@@ -68,6 +69,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/history" element={<History />} />
             </Routes>
 
             <CitationDrawer />

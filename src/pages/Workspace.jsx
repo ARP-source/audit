@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { Loader2, UploadCloud, Send, FileText, Briefcase, Target, ShieldCheck, ArrowLeft, Download, Lightbulb } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const Workspace = () => {
     const resultsRef = useRef(null);
@@ -24,10 +25,30 @@ const Workspace = () => {
     const [currentProjectId, setCurrentProjectId] = useState(null);
     const chatEndRef = useRef(null);
 
-    // Simulate chat history for now
+    // Chat history
     const [chatHistory, setChatHistory] = useState([
         { role: 'system', text: 'Workspace initialized. Awaiting input for Audit execution.' }
     ]);
+
+    // Load chat history when projectId is set
+    useEffect(() => {
+        if (!currentProjectId) return;
+        const loadChat = async () => {
+            const { data } = await supabase
+                .from('chat_messages')
+                .select('role, content, created_at')
+                .eq('project_id', currentProjectId)
+                .order('created_at', { ascending: true });
+            if (data && data.length > 0) {
+                const loaded = data.map(m => ({ role: m.role, text: m.content }));
+                setChatHistory(prev => [
+                    prev[0], // keep the initialization message
+                    ...loaded
+                ]);
+            }
+        };
+        loadChat();
+    }, [currentProjectId]);
 
     const handleInitiate = async () => {
         if (!companyName.trim() || !taskObjective.trim() || loadingState !== "idle") return;
@@ -533,17 +554,119 @@ const Workspace = () => {
                                 <div className="pt-2 flex justify-end">
                                     <button
                                         onClick={() => {
-                                            import('html2pdf.js').then(({ default: html2pdf }) => {
-                                                html2pdf()
-                                                    .set({
-                                                        margin: [10, 10, 10, 10],
-                                                        filename: `Audit_${companyName || 'Report'}.pdf`,
-                                                        image: { type: 'jpeg', quality: 0.98 },
-                                                        html2canvas: { scale: 2, backgroundColor: '#0A0A0F' },
-                                                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                                                    })
-                                                    .from(resultsRef.current)
-                                                    .save();
+                                            import('jspdf').then(({ default: jsPDF }) => {
+                                                const doc = new jsPDF();
+                                                const margin = 20;
+                                                let y = margin;
+                                                const pageWidth = doc.internal.pageSize.getWidth();
+                                                const maxWidth = pageWidth - margin * 2;
+
+                                                const addText = (text, size = 10, style = 'normal', color = [33, 33, 33]) => {
+                                                    doc.setFontSize(size);
+                                                    doc.setFont('helvetica', style);
+                                                    doc.setTextColor(...color);
+                                                    const lines = doc.splitTextToSize(text, maxWidth);
+                                                    lines.forEach(line => {
+                                                        if (y > 275) { doc.addPage(); y = margin; }
+                                                        doc.text(line, margin, y);
+                                                        y += size * 0.5;
+                                                    });
+                                                    y += 2;
+                                                };
+
+                                                const addSection = (title) => {
+                                                    y += 4;
+                                                    if (y > 265) { doc.addPage(); y = margin; }
+                                                    doc.setDrawColor(200, 170, 80);
+                                                    doc.line(margin, y, pageWidth - margin, y);
+                                                    y += 6;
+                                                    addText(title.toUpperCase(), 11, 'bold', [160, 130, 50]);
+                                                    y += 2;
+                                                };
+
+                                                // Header
+                                                doc.setFillColor(15, 15, 20);
+                                                doc.rect(0, 0, pageWidth, 40, 'F');
+                                                doc.setTextColor(255, 255, 255);
+                                                doc.setFontSize(20);
+                                                doc.setFont('helvetica', 'bold');
+                                                doc.text(`Audit Report: ${companyName || 'N/A'}`, margin, 22);
+                                                doc.setFontSize(9);
+                                                doc.setFont('helvetica', 'normal');
+                                                doc.setTextColor(200, 200, 200);
+                                                doc.text(`Generated ${new Date().toLocaleDateString()} | ${taskObjective}`, margin, 32);
+                                                y = 50;
+
+                                                const r = results.research;
+                                                const s = results.simulation;
+
+                                                // Executive Summary
+                                                if (r?.executive_summary) {
+                                                    addSection('Executive Summary');
+                                                    addText(r.executive_summary, 10, 'normal', [50, 50, 50]);
+                                                }
+
+                                                // SWOT
+                                                if (r?.swot_analysis) {
+                                                    addSection('SWOT Analysis');
+                                                    ['strengths', 'weaknesses', 'opportunities', 'threats'].forEach(key => {
+                                                        addText(key.charAt(0).toUpperCase() + key.slice(1), 10, 'bold', [80, 80, 80]);
+                                                        r.swot_analysis[key]?.forEach(item => addText(`• ${item}`, 9, 'normal', [60, 60, 60]));
+                                                        y += 2;
+                                                    });
+                                                }
+
+                                                // Key Risks
+                                                if (r?.key_risks?.length > 0) {
+                                                    addSection('Key Risks');
+                                                    r.key_risks.forEach(risk => {
+                                                        addText(`[${risk.severity}/5] ${risk.risk}`, 9, 'bold', [180, 50, 50]);
+                                                        addText(`   Mitigation: ${risk.mitigation}`, 9, 'normal', [80, 80, 80]);
+                                                    });
+                                                }
+
+                                                // Competitors
+                                                if (r?.competitor_landscape?.length > 0) {
+                                                    addSection('Competitor Landscape');
+                                                    r.competitor_landscape.forEach(c => {
+                                                        addText(`${c.name} — ${c.positioning} [${c.threat_level}]`, 9, 'normal', [50, 50, 50]);
+                                                    });
+                                                }
+
+                                                // Next Steps
+                                                if (r?.recommended_next_steps?.length > 0) {
+                                                    addSection('Recommended Next Steps');
+                                                    r.recommended_next_steps.forEach((step, i) => {
+                                                        addText(`${i + 1}. ${step.action} (${step.timeline}) [${step.priority}]`, 9, 'normal', [50, 50, 50]);
+                                                    });
+                                                }
+
+                                                // Confidence
+                                                if (s?.overall_confidence_score) {
+                                                    addSection(`Confidence Score: ${s.overall_confidence_score.score}/100`);
+                                                    addText(s.overall_confidence_score.justification, 9, 'normal', [60, 60, 60]);
+                                                }
+
+                                                // Edge Cases
+                                                if (s?.edge_case_failures?.length > 0) {
+                                                    addSection('Edge Case Vulnerabilities');
+                                                    s.edge_case_failures.forEach(e => {
+                                                        const scenario = e.scenario || e;
+                                                        addText(`⚠ ${scenario}${e.impact ? ` [${e.impact}]` : ''}`, 9, 'normal', [180, 50, 50]);
+                                                    });
+                                                }
+
+                                                // Logical Flaws
+                                                if (s?.logical_flaws?.length > 0) {
+                                                    addSection('Logical Flaws');
+                                                    s.logical_flaws.forEach(f => {
+                                                        addText(f.flaw || f, 9, 'bold', [200, 120, 30]);
+                                                        if (f.explanation) addText(`   ${f.explanation}`, 9, 'normal', [80, 80, 80]);
+                                                        if (f.recommendation) addText(`   → ${f.recommendation}`, 9, 'normal', [40, 140, 80]);
+                                                    });
+                                                }
+
+                                                doc.save(`Audit_${companyName || 'Report'}.pdf`);
                                             });
                                         }}
                                         className="flex items-center gap-2 text-xs font-bold text-obsidian bg-champagne hover:bg-[#B39B54] px-4 py-2 rounded-lg transition-colors"
