@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { callGemini } from './lib/gemini.js';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -44,15 +45,10 @@ export default async function handler(req, res) {
         const searchResults = await Promise.all(searchPromises);
         const context = searchResults.join('\n\n');
 
-        const llmRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.LLM_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                systemInstruction: {
-                    parts: [{
-                        text: `You are a senior management consultant performing a strategic audit. Analyze the query using the provided web research and uploaded documents. You must return STRICTLY a JSON object with this exact structure:
+        const llmData = await callGemini({
+            systemInstruction: {
+                parts: [{
+                    text: `You are a senior management consultant performing a strategic audit. Analyze the query using the provided web research and uploaded documents. You must return STRICTLY a JSON object with this exact structure:
 
 {
   "executive_summary": "A concise 3-sentence strategic overview of your findings.",
@@ -77,22 +73,15 @@ export default async function handler(req, res) {
 }
 
 Provide 3-5 items per array. severity is 1-5 (5 = critical). Be specific and data-driven, not generic. Ground every insight in the provided context.` }]
-                },
-                contents: [{
-                    role: 'user',
-                    parts: [{ text: `Query: ${query}\nContext from Web Research: ${context}\nContext from Uploaded Documents: ${documentText || 'None provided'}` }]
-                }],
-                generationConfig: {
-                    responseMimeType: 'application/json'
-                }
-            })
+            },
+            contents: [{
+                role: 'user',
+                parts: [{ text: `Query: ${query}\nContext from Web Research: ${context}\nContext from Uploaded Documents: ${documentText || 'None provided'}` }]
+            }],
+            generationConfig: {
+                responseMimeType: 'application/json'
+            }
         });
-
-        const llmData = await llmRes.json();
-
-        if (!llmRes.ok || !llmData.candidates) {
-            throw new Error(`Gemini API Error: ${llmData.error?.message || JSON.stringify(llmData)}`);
-        }
 
         const parsed = JSON.parse(llmData.candidates[0].content.parts[0].text);
 

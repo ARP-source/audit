@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { callGemini } from './lib/gemini.js';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -45,27 +46,15 @@ export default async function handler(req, res) {
         }
 
         // Call Gemini with the context and the user's new message
-        const llmRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.LLM_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+        const llmData = await callGemini({
+            systemInstruction: {
+                parts: [{ text: 'You are a strategic analysis assistant operating within a Secure Sandbox environment called "Audit". The user will ask follow-up questions based on a previously generated Context Matrix. Use the provided context to answer intelligently. You MUST keep your tone conversational, clear, helpful, and natural so the user clearly understands your advice. Do not be overly robotic or clinical. Provide actionable, easy-to-read insights. Do not use markdown backticks around your entire response. Keep answers concise but thoroughly answer the user\'s question.' }]
             },
-            body: JSON.stringify({
-                systemInstruction: {
-                    parts: [{ text: 'You are a strategic analysis assistant operating within a Secure Sandbox environment called "Audit". The user will ask follow-up questions based on a previously generated Context Matrix. Use the provided context to answer intelligently. You MUST keep your tone conversational, clear, helpful, and natural so the user clearly understands your advice. Do not be overly robotic or clinical. Provide actionable, easy-to-read insights. Do not use markdown backticks around your entire response. Keep answers concise but thoroughly answer the user\'s question.' }]
-                },
-                contents: [{
-                    role: 'user',
-                    parts: [{ text: `Here is the current context matrix for this session:\n\n${contextString}\n\nUser's follow-up query: ${message}` }]
-                }]
-            })
+            contents: [{
+                role: 'user',
+                parts: [{ text: `Here is the current context matrix for this session:\n\n${contextString}\n\nUser's follow-up query: ${message}` }]
+            }]
         });
-
-        const llmData = await llmRes.json();
-
-        if (!llmRes.ok || !llmData.candidates) {
-            throw new Error(`Gemini API Error: ${llmData.error?.message || JSON.stringify(llmData)}`);
-        }
 
         const reply = llmData.candidates[0].content.parts[0].text;
 

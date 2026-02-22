@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { callGemini } from './lib/gemini.js';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -25,15 +26,10 @@ export default async function handler(req, res) {
 
         const researchContext = researchData?.map(r => JSON.stringify(r.summary)).join('\n') || '';
 
-        const llmRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.LLM_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                systemInstruction: {
-                    parts: [{
-                        text: `You are a senior risk analyst performing a strategic stress test. Analyze the proposed solution against the research context and identify every weakness, edge case, and logical flaw. Return STRICTLY a JSON object with this exact structure:
+        const llmData = await callGemini({
+            systemInstruction: {
+                parts: [{
+                    text: `You are a senior risk analyst performing a strategic stress test. Analyze the proposed solution against the research context and identify every weakness, edge case, and logical flaw. Return STRICTLY a JSON object with this exact structure:
 
 {
   "edge_case_failures": [
@@ -52,22 +48,15 @@ export default async function handler(req, res) {
 }
 
 Provide 3-5 items per array. Be brutally honest and specific. Do not give generic risks — ground them in the actual research context provided. The confidence score should reflect how viable the proposed solution actually is.` }]
-                },
-                contents: [{
-                    role: 'user',
-                    parts: [{ text: `Research Context: ${researchContext}\nProposed Solution: ${proposedSolution}` }]
-                }],
-                generationConfig: {
-                    responseMimeType: 'application/json'
-                }
-            })
+            },
+            contents: [{
+                role: 'user',
+                parts: [{ text: `Research Context: ${researchContext}\nProposed Solution: ${proposedSolution}` }]
+            }],
+            generationConfig: {
+                responseMimeType: 'application/json'
+            }
         });
-
-        const llmData = await llmRes.json();
-
-        if (!llmRes.ok || !llmData.candidates) {
-            throw new Error(`Gemini API Error: ${llmData.error?.message || JSON.stringify(llmData)}`);
-        }
 
         const predictions = JSON.parse(llmData.candidates[0].content.parts[0].text);
 
