@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { Loader2, UploadCloud, Send, FileText, Briefcase, Target, ShieldCheck, ArrowLeft, Download } from 'lucide-react';
+import { Loader2, UploadCloud, Send, FileText, Briefcase, Target, ShieldCheck, ArrowLeft, Download, Lightbulb } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Workspace = () => {
@@ -12,6 +12,7 @@ const Workspace = () => {
     // Form State
     const [companyName, setCompanyName] = useState("");
     const [taskObjective, setTaskObjective] = useState("");
+    const [proposedStrategy, setProposedStrategy] = useState("");
     const [chatInput, setChatInput] = useState("");
     const [uploadedFiles, setUploadedFiles] = useState([]);
     const [isDragging, setIsDragging] = useState(false);
@@ -82,14 +83,17 @@ const Workspace = () => {
 
             if (!researchRes.ok) throw new Error(researchData.error || "Research failed");
 
-            // Step 2: Simulate
+            // Step 2: Simulate — use user's strategy if provided, otherwise auto-feed research results
             setLoadingState("simulate");
+            const solutionToTest = proposedStrategy.trim()
+                ? proposedStrategy
+                : JSON.stringify(researchData.data);
             const simulateRes = await fetch('/api/simulate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ projectId, proposedSolution: fullQuery })
+                body: JSON.stringify({ projectId, proposedSolution: solutionToTest })
             });
             const simulateData = await simulateRes.json();
 
@@ -255,6 +259,19 @@ const Workspace = () => {
                                     onChange={(e) => setTaskObjective(e.target.value)}
                                     className="w-full bg-[#1A1A24] border border-ivory/10 focus:border-champagne/50 rounded-lg px-4 py-3 text-sm text-ivory outline-none transition-colors resize-none h-32"
                                     placeholder="Evaluate market entry strategy for expanding SaaS products into the healthcare sector."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs text-ivory/50 font-bold tracking-wider mb-2 flex items-center gap-2">
+                                    <Lightbulb size={14} /> Proposed Strategy
+                                    <span className="text-ivory/25 font-normal">(optional)</span>
+                                </label>
+                                <textarea
+                                    value={proposedStrategy}
+                                    onChange={(e) => setProposedStrategy(e.target.value)}
+                                    className="w-full bg-[#1A1A24] border border-ivory/10 focus:border-champagne/50 rounded-lg px-4 py-3 text-sm text-ivory outline-none transition-colors resize-none h-24"
+                                    placeholder="Leave empty to auto-analyze research findings, or type your own strategy to stress-test."
                                 />
                             </div>
 
