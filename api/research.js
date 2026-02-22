@@ -31,11 +31,36 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 systemInstruction: {
-                    parts: [{ text: 'You are a research assistant. Output strictly a JSON object containing two separate arrays: "summary_points" (strings) and "citations" (objects with "claim" and "url").' }]
+                    parts: [{
+                        text: `You are a senior management consultant performing a strategic audit. Analyze the query using the provided web research and uploaded documents. You must return STRICTLY a JSON object with this exact structure:
+
+{
+  "executive_summary": "A concise 3-sentence strategic overview of your findings.",
+  "swot_analysis": {
+    "strengths": ["string array of 3-5 strengths"],
+    "weaknesses": ["string array of 3-5 weaknesses"],
+    "opportunities": ["string array of 3-5 opportunities"],
+    "threats": ["string array of 3-5 threats"]
+  },
+  "key_risks": [
+    { "risk": "description", "severity": 3, "mitigation": "recommended action" }
+  ],
+  "competitor_landscape": [
+    { "name": "Competitor Name", "positioning": "brief description", "threat_level": "High/Medium/Low" }
+  ],
+  "recommended_next_steps": [
+    { "action": "specific action item", "timeline": "timeframe", "priority": "High/Medium/Low" }
+  ],
+  "citations": [
+    { "claim": "what the source supports", "url": "source url" }
+  ]
+}
+
+Provide 3-5 items per array. severity is 1-5 (5 = critical). Be specific and data-driven, not generic. Ground every insight in the provided context.` }]
                 },
                 contents: [{
                     role: 'user',
-                    parts: [{ text: `Query: ${query}\nContext from Web: ${context}\nContext from Uploaded Documents: ${documentText || 'None provided'}` }]
+                    parts: [{ text: `Query: ${query}\nContext from Web Research: ${context}\nContext from Uploaded Documents: ${documentText || 'None provided'}` }]
                 }],
                 generationConfig: {
                     responseMimeType: 'application/json'
@@ -61,7 +86,7 @@ export default async function handler(req, res) {
         const { error: researchError } = await supabase.from('research_data').insert({
             project_id: projectId,
             query,
-            summary: parsed.summary_points
+            summary: parsed
         });
         if (researchError) console.error("Research insert error:", researchError);
 

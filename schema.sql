@@ -52,3 +52,16 @@ CREATE POLICY "Allow anon select simulations" ON simulations FOR SELECT USING (t
 CREATE POLICY "Allow anon insert simulations" ON simulations FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow anon update simulations" ON simulations FOR UPDATE USING (true);
 CREATE POLICY "Allow anon delete simulations" ON simulations FOR DELETE USING (true);
+
+CREATE TABLE chat_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anon select chat_messages" ON chat_messages FOR SELECT USING (true);
+CREATE POLICY "Allow anon insert chat_messages" ON chat_messages FOR INSERT WITH CHECK (true);

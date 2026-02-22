@@ -32,7 +32,26 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 systemInstruction: {
-                    parts: [{ text: 'You are a logical simulation engine. Stress-test the proposed solution against the research context. Output strictly a JSON object with edge_case_failures (array of strings), probability_metrics (object), and logical_flaws (array of strings).' }]
+                    parts: [{
+                        text: `You are a senior risk analyst performing a strategic stress test. Analyze the proposed solution against the research context and identify every weakness, edge case, and logical flaw. Return STRICTLY a JSON object with this exact structure:
+
+{
+  "edge_case_failures": [
+    { "scenario": "specific edge case description", "impact": "High/Medium/Low", "likelihood": "High/Medium/Low" }
+  ],
+  "logical_flaws": [
+    { "flaw": "the logical weakness", "explanation": "why this is a problem", "recommendation": "how to fix it" }
+  ],
+  "risk_matrix": [
+    { "risk": "risk description", "probability": "High/Medium/Low", "severity": "High/Medium/Low", "priority": "Critical/High/Medium/Low" }
+  ],
+  "overall_confidence_score": {
+    "score": 72,
+    "justification": "Brief explanation of why you rated the solution this score out of 100"
+  }
+}
+
+Provide 3-5 items per array. Be brutally honest and specific. Do not give generic risks — ground them in the actual research context provided. The confidence score should reflect how viable the proposed solution actually is.` }]
                 },
                 contents: [{
                     role: 'user',

@@ -5,6 +5,9 @@ export default async function handler(req, res) {
 
     const { projectId, message } = req.body;
 
+    const authHeader = req.headers.authorization;
+    const token = authHeader ? authHeader.split(' ')[1] : null;
+
     if (!projectId || !message) {
         return res.status(400).json({ error: 'Missing projectId or message' });
     }
@@ -65,6 +68,12 @@ export default async function handler(req, res) {
         }
 
         const reply = llmData.candidates[0].content.parts[0].text;
+
+        // Persist both messages to chat_messages
+        await supabase.from('chat_messages').insert([
+            { project_id: projectId, role: 'user', content: message },
+            { project_id: projectId, role: 'assistant', content: reply }
+        ]);
 
         return res.status(200).json({ success: true, reply });
 

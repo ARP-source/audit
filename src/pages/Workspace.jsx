@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { Loader2, UploadCloud, Send, FileText, Briefcase, Target, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Loader2, UploadCloud, Send, FileText, Briefcase, Target, ShieldCheck, ArrowLeft, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Workspace = () => {
@@ -40,15 +40,29 @@ const Workspace = () => {
         setCurrentProjectId(projectId);
 
         try {
-            // Read all uploaded files as text
+            // Parse all uploaded files via the server-side endpoint
             let documentText = "";
             if (uploadedFiles.length > 0) {
                 const filePromises = uploadedFiles.map(file => {
                     return new Promise((resolve, reject) => {
                         const reader = new FileReader();
-                        reader.onload = (e) => resolve(`\n--- Document: ${file.name} ---\n${e.target.result}\n`);
-                        reader.onerror = (e) => reject(new Error(`Failed to read ${file.name}`));
-                        reader.readAsText(file);
+                        reader.onload = async (e) => {
+                            try {
+                                const base64 = e.target.result.split(',')[1];
+                                const parseRes = await fetch('/api/parse-document', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ fileBase64: base64, fileName: file.name })
+                                });
+                                const parseData = await parseRes.json();
+                                if (!parseRes.ok) throw new Error(parseData.error);
+                                resolve(`\n--- Document: ${file.name} ---\n${parseData.text}\n`);
+                            } catch (err) {
+                                resolve(`\n--- Document: ${file.name} (parse failed: ${err.message}) ---\n`);
+                            }
+                        };
+                        reader.onerror = () => resolve(`\n--- Document: ${file.name} (read failed) ---\n`);
+                        reader.readAsDataURL(file);
                     });
                 });
 
@@ -231,7 +245,7 @@ const Workspace = () => {
                                     value={companyName}
                                     onChange={(e) => setCompanyName(e.target.value)}
                                     className="w-full bg-[#1A1A24] border border-ivory/10 focus:border-champagne/50 rounded-lg px-4 py-3 text-sm text-ivory outline-none transition-colors"
-                                    placeholder="e.g. UC Berkeley IEEE"
+                                    placeholder="Deloitte Digital"
                                 />
                             </div>
 
@@ -243,7 +257,7 @@ const Workspace = () => {
                                     value={taskObjective}
                                     onChange={(e) => setTaskObjective(e.target.value)}
                                     className="w-full bg-[#1A1A24] border border-ivory/10 focus:border-champagne/50 rounded-lg px-4 py-3 text-sm text-ivory outline-none transition-colors resize-none h-32"
-                                    placeholder="e.g. Needs a sponsorship outreach packet tailored for tech companies."
+                                    placeholder="Evaluate market entry strategy for expanding SaaS products into the healthcare sector."
                                 />
                             </div>
 
@@ -334,45 +348,196 @@ const Workspace = () => {
                         )}
 
                         {loadingState === "complete" && results && (
-                            <div ref={resultsRef} className="w-full grid gap-4 lg:grid-cols-2 text-left h-full overflow-y-auto pr-2 custom-scrollbar">
+                            <div ref={resultsRef} className="w-full space-y-4 text-left h-full overflow-y-auto pr-2 custom-scrollbar">
 
-                                <div className="lg:col-span-2 bg-slate/30 border border-ivory/10 rounded-xl p-6">
-                                    <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-4 flex items-center gap-2">
-                                        <ShieldCheck size={14} /> Ingested Context Matrix
-                                    </h4>
-                                    <ul className="space-y-3">
-                                        {results.research.summary_points?.map((pt, i) => (
-                                            <li key={i} className="text-ivory/80 text-sm flex gap-3 leading-relaxed">
-                                                <span className="text-champagne/50 mt-1 uppercase text-xs">[{i + 1}]</span>
-                                                {pt}
-                                            </li>
-                                        ))}
-                                    </ul>
+                                {/* Executive Summary */}
+                                {results.research?.executive_summary && (
+                                    <div className="bg-slate/30 border border-ivory/10 rounded-xl p-6">
+                                        <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3 flex items-center gap-2">
+                                            <ShieldCheck size={14} /> Executive Summary
+                                        </h4>
+                                        <p className="text-ivory/80 text-sm leading-relaxed">{results.research.executive_summary}</p>
+                                    </div>
+                                )}
+
+                                {/* SWOT Analysis Grid */}
+                                {results.research?.swot_analysis && (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-[#111116] border border-emerald-900/30 rounded-xl p-5">
+                                            <h4 className="text-emerald-400 font-mono text-xs tracking-widest uppercase mb-3">↑ Strengths</h4>
+                                            <ul className="space-y-2">
+                                                {results.research.swot_analysis.strengths?.map((item, i) => (
+                                                    <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
+                                                        <span className="text-emerald-400/50 mt-0.5">•</span> {item}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                        <div className="bg-[#111116] border border-red-900/30 rounded-xl p-5">
+                                            <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-3">↓ Weaknesses</h4>
+                                            <ul className="space-y-2">
+                                                {results.research.swot_analysis.weaknesses?.map((item, i) => (
+                                                    <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
+                                                        <span className="text-red-400/50 mt-0.5">•</span> {item}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                        <div className="bg-[#111116] border border-blue-900/30 rounded-xl p-5">
+                                            <h4 className="text-blue-400 font-mono text-xs tracking-widest uppercase mb-3">◎ Opportunities</h4>
+                                            <ul className="space-y-2">
+                                                {results.research.swot_analysis.opportunities?.map((item, i) => (
+                                                    <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
+                                                        <span className="text-blue-400/50 mt-0.5">•</span> {item}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                        <div className="bg-[#111116] border border-orange-900/30 rounded-xl p-5">
+                                            <h4 className="text-orange-400 font-mono text-xs tracking-widest uppercase mb-3">⚠ Threats</h4>
+                                            <ul className="space-y-2">
+                                                {results.research.swot_analysis.threats?.map((item, i) => (
+                                                    <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
+                                                        <span className="text-orange-400/50 mt-0.5">•</span> {item}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Key Risks */}
+                                {results.research?.key_risks?.length > 0 && (
+                                    <div className="bg-[#111116] border border-red-900/30 rounded-xl p-5">
+                                        <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-3">Key Risks</h4>
+                                        <div className="space-y-3">
+                                            {results.research.key_risks.map((r, i) => (
+                                                <div key={i} className="flex items-start gap-3 text-sm">
+                                                    <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${r.severity >= 4 ? 'bg-red-500/20 text-red-400' : r.severity >= 3 ? 'bg-orange-500/20 text-orange-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                                        {r.severity}/5
+                                                    </span>
+                                                    <div>
+                                                        <span className="text-ivory/80">{r.risk}</span>
+                                                        <p className="text-ivory/40 text-xs mt-1">↳ {r.mitigation}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Competitor Landscape */}
+                                {results.research?.competitor_landscape?.length > 0 && (
+                                    <div className="bg-slate/30 border border-ivory/10 rounded-xl p-5">
+                                        <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3">Competitor Landscape</h4>
+                                        <div className="space-y-2">
+                                            {results.research.competitor_landscape.map((c, i) => (
+                                                <div key={i} className="flex items-center justify-between text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-ivory/5">
+                                                    <div>
+                                                        <span className="text-ivory font-medium">{c.name}</span>
+                                                        <p className="text-ivory/40 text-xs mt-0.5">{c.positioning}</p>
+                                                    </div>
+                                                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${c.threat_level === 'High' ? 'bg-red-500/20 text-red-400' : c.threat_level === 'Medium' ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                        {c.threat_level}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Recommended Next Steps */}
+                                {results.research?.recommended_next_steps?.length > 0 && (
+                                    <div className="bg-slate/30 border border-ivory/10 rounded-xl p-5">
+                                        <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3">Recommended Next Steps</h4>
+                                        <div className="space-y-2">
+                                            {results.research.recommended_next_steps.map((s, i) => (
+                                                <div key={i} className="flex items-start gap-3 text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-ivory/5">
+                                                    <span className="text-champagne/60 font-mono text-xs mt-0.5">{i + 1}.</span>
+                                                    <div className="flex-1">
+                                                        <span className="text-ivory/80">{s.action}</span>
+                                                        <div className="flex gap-3 mt-1">
+                                                            <span className="text-ivory/30 text-xs">⏱ {s.timeline}</span>
+                                                            <span className={`text-[10px] font-bold uppercase ${s.priority === 'High' ? 'text-red-400' : s.priority === 'Medium' ? 'text-orange-400' : 'text-green-400'}`}>{s.priority}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Confidence Score */}
+                                {results.simulation?.overall_confidence_score && (
+                                    <div className="bg-slate/30 border border-champagne/20 rounded-xl p-5 flex items-center gap-6">
+                                        <div className="relative w-20 h-20 shrink-0">
+                                            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+                                                <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
+                                                <circle cx="18" cy="18" r="15.5" fill="none" stroke={results.simulation.overall_confidence_score.score >= 70 ? '#34d399' : results.simulation.overall_confidence_score.score >= 40 ? '#fbbf24' : '#f87171'} strokeWidth="3" strokeDasharray={`${results.simulation.overall_confidence_score.score} 100`} strokeLinecap="round" />
+                                            </svg>
+                                            <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-ivory">{results.simulation.overall_confidence_score.score}</span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-1">Confidence Score</h4>
+                                            <p className="text-ivory/60 text-xs leading-relaxed">{results.simulation.overall_confidence_score.justification}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Edge Case Failures */}
+                                {results.simulation?.edge_case_failures?.length > 0 && (
+                                    <div className="bg-[#111116] border border-red-900/40 rounded-xl p-5">
+                                        <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-3">Edge Case Vulnerabilities</h4>
+                                        <div className="space-y-2">
+                                            {results.simulation.edge_case_failures.map((e, i) => (
+                                                <div key={i} className="flex items-start justify-between gap-3 text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-red-900/20">
+                                                    <span className="text-ivory/70 text-xs leading-relaxed flex-1">{e.scenario || e}</span>
+                                                    {e.impact && <span className={`text-[10px] font-bold uppercase shrink-0 px-2 py-0.5 rounded ${e.impact === 'High' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>{e.impact}</span>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Logical Flaws */}
+                                {results.simulation?.logical_flaws?.length > 0 && (
+                                    <div className="bg-[#111116] border border-orange-900/40 rounded-xl p-5">
+                                        <h4 className="text-orange-400 font-mono text-xs tracking-widest uppercase mb-3">Logical Flaws</h4>
+                                        <div className="space-y-3">
+                                            {results.simulation.logical_flaws.map((f, i) => (
+                                                <div key={i} className="text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-orange-900/20">
+                                                    <span className="text-ivory/80 font-medium">{f.flaw || f}</span>
+                                                    {f.explanation && <p className="text-ivory/40 text-xs mt-1">{f.explanation}</p>}
+                                                    {f.recommendation && <p className="text-emerald-400/70 text-xs mt-1">→ {f.recommendation}</p>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Export Button */}
+                                <div className="pt-2 flex justify-end">
+                                    <button
+                                        onClick={() => {
+                                            import('html2pdf.js').then(({ default: html2pdf }) => {
+                                                html2pdf()
+                                                    .set({
+                                                        margin: [10, 10, 10, 10],
+                                                        filename: `Audit_${companyName || 'Report'}.pdf`,
+                                                        image: { type: 'jpeg', quality: 0.98 },
+                                                        html2canvas: { scale: 2, backgroundColor: '#0A0A0F' },
+                                                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                                                    })
+                                                    .from(resultsRef.current)
+                                                    .save();
+                                            });
+                                        }}
+                                        className="flex items-center gap-2 text-xs font-bold text-obsidian bg-champagne hover:bg-[#B39B54] px-4 py-2 rounded-lg transition-colors"
+                                    >
+                                        <Download size={14} /> Export Audit PDF
+                                    </button>
                                 </div>
 
-                                <div className="bg-[#111116] border border-red-900/40 rounded-xl p-6">
-                                    <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-4">Edge Case Vulnerabilities</h4>
-                                    <ul className="space-y-3">
-                                        {results.simulation?.edge_case_failures?.map((pt, i) => (
-                                            <li key={i} className="text-ivory/80 text-sm flex gap-3 leading-relaxed">
-                                                <span className="text-red-400/50 mt-[5px] text-[10px]">⚠️</span>
-                                                {pt}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-
-                                <div className="bg-[#111116] border border-orange-900/40 rounded-xl p-6">
-                                    <h4 className="text-orange-400 font-mono text-xs tracking-widest uppercase mb-4">Core Logical Flaws</h4>
-                                    <ul className="space-y-3">
-                                        {results.simulation?.logical_flaws?.map((pt, i) => (
-                                            <li key={i} className="text-ivory/80 text-sm flex gap-3 leading-relaxed">
-                                                <span className="text-orange-400/50 mt-[5px] text-[10px]">⊗</span>
-                                                {pt}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
                             </div>
                         )}
 
