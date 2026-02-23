@@ -5,6 +5,7 @@ import researchHandler from './api/research.js';
 import simulateHandler from './api/simulate.js';
 import citationsHandler from './api/citations.js';
 import chatHandler from './api/chat.js';
+import parseDocumentHandler from './api/parse-document.js';
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ app.post('/api/research', createVercelAdapter(researchHandler));
 app.post('/api/simulate', createVercelAdapter(simulateHandler));
 app.get('/api/citations', createVercelAdapter(citationsHandler));
 app.post('/api/chat', createVercelAdapter(chatHandler));
+app.post('/api/parse-document', createVercelAdapter(parseDocumentHandler));
 
 const PORT = 3001;
 app.listen(PORT, () => {
