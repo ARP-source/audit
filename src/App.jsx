@@ -7,6 +7,7 @@ import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
 import Workspace from './pages/Workspace';
 import History from './pages/History';
+import ProjectHub from './pages/ProjectHub';
 import Auth from './pages/Auth';
 import CitationDrawer from './components/CitationDrawer';
 import { AuthProvider } from './context/AuthContext';
@@ -32,7 +33,7 @@ const ScrollToTop = () => {
 // Hide Navbar on workspace and auth pages
 const NavbarWrapper = () => {
   const { pathname } = useLocation();
-  if (pathname === '/workspace' || pathname === '/auth' || pathname === '/history') return null;
+  if (pathname === '/workspace' || pathname === '/auth' || pathname === '/hub') return null;
   return <Navbar />;
 }
 
@@ -60,6 +61,14 @@ function App() {
 
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route
+                path="/hub"
+                element={
+                  <ProtectedRoute>
+                    <ProjectHub />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/auth" element={<Auth />} />
               <Route
                 path="/workspace"

@@ -326,11 +326,11 @@ const Workspace = () => {
             {/* Back Button */}
             <div className="w-full max-w-6xl mb-8">
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate('/hub')}
                     className="flex items-center gap-2 text-sm text-ivory/50 hover:text-champagne transition-colors group"
                 >
                     <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                    <span>Back to Home</span>
+                    <span>Back to Hub</span>
                 </button>
             </div>
 

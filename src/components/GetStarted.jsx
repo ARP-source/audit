@@ -56,7 +56,7 @@ const GetStarted = () => {
             <div className="relative z-10 w-full max-w-sm mx-auto h-48 flex items-center justify-center">
                 <button
                     ref={ctaRef}
-                    onClick={() => navigate('/workspace')}
+                    onClick={() => navigate('/hub')}
                     onMouseMove={handleMouseMove}
                     onMouseLeave={handleMouseLeave}
                     style={{ background: 'linear-gradient(to bottom, #E7C86A, #B39535)' }}
