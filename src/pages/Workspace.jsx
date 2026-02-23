@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { Loader2, UploadCloud, Send, FileText, Briefcase, Target, ShieldCheck, ArrowLeft, Download, Lightbulb, Link as LinkIcon } from 'lucide-react';
+import { Loader2, UploadCloud, Send, FileText, Briefcase, Target, ShieldCheck, ArrowLeft, Download, Lightbulb, Link as LinkIcon, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -26,6 +26,11 @@ const Workspace = () => {
     const [currentProjectId, setCurrentProjectId] = useState(null);
     const chatEndRef = useRef(null);
 
+    // View State (matrix vs plan)
+    const [activeView, setActiveView] = useState('matrix'); // 'matrix' or 'plan'
+    const [actionPlan, setActionPlan] = useState("");
+    const [saveStatus, setSaveStatus] = useState("saved"); // saving, saved, error
+
     // Chat history
     const [chatHistory, setChatHistory] = useState([
         { role: 'system', text: 'Workspace initialized. Awaiting input for Audit execution.' }
@@ -45,7 +50,7 @@ const Workspace = () => {
                     // Fetch Research Data
                     const { data: rd, error: rErr } = await supabase
                         .from('research_data')
-                        .select('summary, query')
+                        .select('summary, query, plan')
                         .eq('project_id', historyProjectId)
                         .single();
 
@@ -72,6 +77,7 @@ const Workspace = () => {
                         simulation: sd.predictions
                     });
 
+                    if (rd.plan) setActionPlan(rd.plan);
                     setLoadingState("complete");
 
                     setTimeout(() => {
@@ -110,6 +116,33 @@ const Workspace = () => {
         };
         loadChat();
     }, [currentProjectId]);
+
+    // Auto-save plan to Supabase
+    useEffect(() => {
+        if (!currentProjectId || loadingState !== "complete") return;
+
+        const savePlan = async () => {
+            setSaveStatus("saving");
+            try {
+                const { error } = await supabase
+                    .from('research_data')
+                    .update({ plan: actionPlan })
+                    .eq('project_id', currentProjectId);
+
+                if (error) throw error;
+                setSaveStatus("saved");
+            } catch (err) {
+                console.error("Failed to auto-save plan:", err);
+                setSaveStatus("error");
+            }
+        };
+
+        const timeoutId = setTimeout(() => {
+            savePlan();
+        }, 1500); // 1.5s debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [actionPlan, currentProjectId, loadingState]);
 
     const handleInitiate = async () => {
         if (!companyName.trim() || !taskObjective.trim() || loadingState !== "idle") return;
@@ -444,329 +477,418 @@ const Workspace = () => {
                         )}
 
                         {loadingState === "complete" && results && (
-                            <div ref={resultsRef} className="w-full space-y-4 text-left h-full overflow-y-auto pr-2 custom-scrollbar">
-
-                                {/* Executive Summary */}
-                                {results.research?.executive_summary && (
-                                    <div className="bg-slate/30 border border-ivory/10 rounded-xl p-6">
-                                        <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3 flex items-center gap-2">
-                                            <ShieldCheck size={14} /> Executive Summary
-                                        </h4>
-                                        <p className="text-ivory/80 text-sm leading-relaxed">{results.research.executive_summary}</p>
+                            <div className="flex h-full flex-col">
+                                {/* Top Toolbar */}
+                                <div className="flex justify-between items-center mb-6 pb-2 border-b border-ivory/10">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-lg font-bold text-champagne tracking-wider">
+                                            {activeView === 'matrix' ? 'Analysis Matrix' : 'Action Plan'}
+                                        </h3>
+                                        {activeView === 'plan' && saveStatus === 'saving' && <span className="text-xs text-ivory/40 italic flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Saving...</span>}
+                                        {activeView === 'plan' && saveStatus === 'saved' && <span className="text-xs text-ivory/30 flex items-center gap-1"><Save size={10} /> Saved</span>}
                                     </div>
-                                )}
-
-                                {/* SWOT Analysis Grid */}
-                                {results.research?.swot_analysis && (
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="bg-[#111116] border border-emerald-900/30 rounded-xl p-5">
-                                            <h4 className="text-emerald-400 font-mono text-xs tracking-widest uppercase mb-3">↑ Strengths</h4>
-                                            <ul className="space-y-2">
-                                                {results.research.swot_analysis.strengths?.map((item, i) => (
-                                                    <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
-                                                        <span className="text-emerald-400/50 mt-0.5">•</span> {item}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                        <div className="bg-[#111116] border border-red-900/30 rounded-xl p-5">
-                                            <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-3">↓ Weaknesses</h4>
-                                            <ul className="space-y-2">
-                                                {results.research.swot_analysis.weaknesses?.map((item, i) => (
-                                                    <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
-                                                        <span className="text-red-400/50 mt-0.5">•</span> {item}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                        <div className="bg-[#111116] border border-blue-900/30 rounded-xl p-5">
-                                            <h4 className="text-blue-400 font-mono text-xs tracking-widest uppercase mb-3">◎ Opportunities</h4>
-                                            <ul className="space-y-2">
-                                                {results.research.swot_analysis.opportunities?.map((item, i) => (
-                                                    <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
-                                                        <span className="text-blue-400/50 mt-0.5">•</span> {item}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                        <div className="bg-[#111116] border border-orange-900/30 rounded-xl p-5">
-                                            <h4 className="text-orange-400 font-mono text-xs tracking-widest uppercase mb-3">⚠ Threats</h4>
-                                            <ul className="space-y-2">
-                                                {results.research.swot_analysis.threats?.map((item, i) => (
-                                                    <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
-                                                        <span className="text-orange-400/50 mt-0.5">•</span> {item}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
+                                    <div className="flex items-center gap-1 bg-obsidian/60 p-1 rounded-lg border border-ivory/10">
+                                        <button
+                                            onClick={() => setActiveView('matrix')}
+                                            className={`p-1.5 rounded transition-all ${activeView === 'matrix' ? 'bg-champagne text-obsidian shadow' : 'text-ivory/50 hover:text-champagne'}`}
+                                            title="View Analysis Matrix"
+                                        >
+                                            <ChevronLeft size={16} />
+                                        </button>
+                                        <span className="w-px h-4 bg-ivory/10 mx-1"></span>
+                                        <button
+                                            onClick={() => setActiveView('plan')}
+                                            className={`p-1.5 rounded transition-all ${activeView === 'plan' ? 'bg-champagne text-obsidian shadow' : 'text-ivory/50 hover:text-champagne'}`}
+                                            title="View Action Plan"
+                                        >
+                                            <ChevronRight size={16} />
+                                        </button>
                                     </div>
-                                )}
-
-                                {/* Key Risks */}
-                                {results.research?.key_risks?.length > 0 && (
-                                    <div className="bg-[#111116] border border-red-900/30 rounded-xl p-5">
-                                        <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-3">Key Risks</h4>
-                                        <div className="space-y-3">
-                                            {results.research.key_risks.map((r, i) => (
-                                                <div key={i} className="flex items-start gap-3 text-sm">
-                                                    <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${r.severity >= 4 ? 'bg-red-500/20 text-red-400' : r.severity >= 3 ? 'bg-orange-500/20 text-orange-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                                                        {r.severity}/5
-                                                    </span>
-                                                    <div>
-                                                        <span className="text-ivory/80">{r.risk}</span>
-                                                        <p className="text-ivory/40 text-xs mt-1">↳ {r.mitigation}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Competitor Landscape */}
-                                {results.research?.competitor_landscape?.length > 0 && (
-                                    <div className="bg-slate/30 border border-ivory/10 rounded-xl p-5">
-                                        <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3">Competitor Landscape</h4>
-                                        <div className="space-y-2">
-                                            {results.research.competitor_landscape.map((c, i) => (
-                                                <div key={i} className="flex items-center justify-between text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-ivory/5">
-                                                    <div>
-                                                        <span className="text-ivory font-medium">{c.name}</span>
-                                                        <p className="text-ivory/40 text-xs mt-0.5">{c.positioning}</p>
-                                                    </div>
-                                                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${c.threat_level === 'High' ? 'bg-red-500/20 text-red-400' : c.threat_level === 'Medium' ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'}`}>
-                                                        {c.threat_level}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Recommended Next Steps */}
-                                {results.research?.recommended_next_steps?.length > 0 && (
-                                    <div className="bg-slate/30 border border-ivory/10 rounded-xl p-5">
-                                        <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3">Recommended Next Steps</h4>
-                                        <div className="space-y-2">
-                                            {results.research.recommended_next_steps.map((s, i) => (
-                                                <div key={i} className="flex items-start gap-3 text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-ivory/5">
-                                                    <span className="text-champagne/60 font-mono text-xs mt-0.5">{i + 1}.</span>
-                                                    <div className="flex-1">
-                                                        <span className="text-ivory/80">{s.action}</span>
-                                                        <div className="flex gap-3 mt-1">
-                                                            <span className="text-ivory/30 text-xs">⏱ {s.timeline}</span>
-                                                            <span className={`text-[10px] font-bold uppercase ${s.priority === 'High' ? 'text-red-400' : s.priority === 'Medium' ? 'text-orange-400' : 'text-green-400'}`}>{s.priority}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Citations Section */}
-                                {results.research?.citations?.length > 0 && (
-                                    <div className="bg-slate/30 border border-ivory/10 rounded-xl p-5 mb-4">
-                                        <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3 flex items-center gap-2">
-                                            <LinkIcon size={14} /> Citations & Sources
-                                        </h4>
-                                        <div className="space-y-3">
-                                            {results.research.citations.map((cit, i) => (
-                                                <div key={i} className="text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-ivory/5">
-                                                    <p className="text-ivory/80 font-medium mb-1">
-                                                        <span className="text-champagne text-[10px] font-mono mr-2 bg-champagne/10 px-1.5 py-0.5 rounded">[Cit. {i + 1}]</span>
-                                                        {cit.claim}
-                                                    </p>
-                                                    <a href={cit.url} target="_blank" rel="noopener noreferrer" className="text-champagne/60 text-xs hover:text-champagne hover:underline transition-colors break-all">
-                                                        {cit.url}
-                                                    </a>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Confidence Score */}
-                                {results.simulation?.overall_confidence_score && (
-                                    <div className="bg-slate/30 border border-champagne/20 rounded-xl p-5 flex items-center gap-6">
-                                        <div className="relative w-20 h-20 shrink-0">
-                                            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
-                                                <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
-                                                <circle cx="18" cy="18" r="15.5" fill="none" stroke={results.simulation.overall_confidence_score.score >= 70 ? '#34d399' : results.simulation.overall_confidence_score.score >= 40 ? '#fbbf24' : '#f87171'} strokeWidth="3" strokeDasharray={`${results.simulation.overall_confidence_score.score} 100`} strokeLinecap="round" />
-                                            </svg>
-                                            <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-ivory">{results.simulation.overall_confidence_score.score}</span>
-                                        </div>
-                                        <div>
-                                            <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-1">Confidence Score</h4>
-                                            <p className="text-ivory/60 text-xs leading-relaxed">{results.simulation.overall_confidence_score.justification}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Edge Case Failures */}
-                                {results.simulation?.edge_case_failures?.length > 0 && (
-                                    <div className="bg-[#111116] border border-red-900/40 rounded-xl p-5">
-                                        <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-3">Edge Case Vulnerabilities</h4>
-                                        <div className="space-y-2">
-                                            {results.simulation.edge_case_failures.map((e, i) => (
-                                                <div key={i} className="flex items-start justify-between gap-3 text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-red-900/20">
-                                                    <span className="text-ivory/70 text-xs leading-relaxed flex-1">{e.scenario || e}</span>
-                                                    {e.impact && <span className={`text-[10px] font-bold uppercase shrink-0 px-2 py-0.5 rounded ${e.impact === 'High' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>{e.impact}</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Logical Flaws */}
-                                {results.simulation?.logical_flaws?.length > 0 && (
-                                    <div className="bg-[#111116] border border-orange-900/40 rounded-xl p-5">
-                                        <h4 className="text-orange-400 font-mono text-xs tracking-widest uppercase mb-3">Logical Flaws</h4>
-                                        <div className="space-y-3">
-                                            {results.simulation.logical_flaws.map((f, i) => (
-                                                <div key={i} className="text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-orange-900/20">
-                                                    <span className="text-ivory/80 font-medium">{f.flaw || f}</span>
-                                                    {f.explanation && <p className="text-ivory/40 text-xs mt-1">{f.explanation}</p>}
-                                                    {f.recommendation && <p className="text-emerald-400/70 text-xs mt-1">→ {f.recommendation}</p>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Export Button */}
-                                <div className="pt-2 flex justify-end">
-                                    <button
-                                        onClick={() => {
-                                            import('jspdf').then(({ default: jsPDF }) => {
-                                                const doc = new jsPDF();
-                                                const margin = 20;
-                                                let y = margin;
-                                                const pageWidth = doc.internal.pageSize.getWidth();
-                                                const maxWidth = pageWidth - margin * 2;
-
-                                                const addText = (text, size = 10, style = 'normal', color = [33, 33, 33]) => {
-                                                    doc.setFontSize(size);
-                                                    doc.setFont('helvetica', style);
-                                                    doc.setTextColor(...color);
-                                                    const lines = doc.splitTextToSize(text, maxWidth);
-                                                    lines.forEach(line => {
-                                                        if (y > 275) { doc.addPage(); y = margin; }
-                                                        doc.text(line, margin, y);
-                                                        y += size * 0.5;
-                                                    });
-                                                    y += 2;
-                                                };
-
-                                                const addSection = (title) => {
-                                                    y += 4;
-                                                    if (y > 265) { doc.addPage(); y = margin; }
-                                                    doc.setDrawColor(200, 170, 80);
-                                                    doc.line(margin, y, pageWidth - margin, y);
-                                                    y += 6;
-                                                    addText(title.toUpperCase(), 11, 'bold', [160, 130, 50]);
-                                                    y += 2;
-                                                };
-
-                                                // Header
-                                                doc.setFillColor(15, 15, 20);
-                                                doc.rect(0, 0, pageWidth, 40, 'F');
-                                                doc.setTextColor(255, 255, 255);
-                                                doc.setFontSize(20);
-                                                doc.setFont('helvetica', 'bold');
-                                                doc.text(`Audit Report: ${companyName || 'N/A'}`, margin, 22);
-                                                doc.setFontSize(9);
-                                                doc.setFont('helvetica', 'normal');
-                                                doc.setTextColor(200, 200, 200);
-                                                doc.text(`Generated ${new Date().toLocaleDateString()} | ${taskObjective}`, margin, 32);
-                                                y = 50;
-
-                                                const r = results.research;
-                                                const s = results.simulation;
-
-                                                // Executive Summary
-                                                if (r?.executive_summary) {
-                                                    addSection('Executive Summary');
-                                                    addText(r.executive_summary, 10, 'normal', [50, 50, 50]);
-                                                }
-
-                                                // Citations
-                                                if (r?.citations?.length > 0) {
-                                                    addSection('Sources & Citations');
-                                                    r.citations.forEach((cit, idx) => {
-                                                        addText(`[Cit. ${idx + 1}] ${cit.claim}`, 9, 'bold', [160, 130, 50]);
-                                                        addText(`   ↳ URL: ${cit.url}`, 8, 'normal', [100, 100, 100]);
-                                                    });
-                                                }
-
-                                                // SWOT
-                                                if (r?.swot_analysis) {
-                                                    addSection('SWOT Analysis');
-                                                    ['strengths', 'weaknesses', 'opportunities', 'threats'].forEach(key => {
-                                                        addText(key.charAt(0).toUpperCase() + key.slice(1), 10, 'bold', [80, 80, 80]);
-                                                        r.swot_analysis[key]?.forEach(item => addText(`• ${item}`, 9, 'normal', [60, 60, 60]));
-                                                        y += 2;
-                                                    });
-                                                }
-
-                                                // Key Risks
-                                                if (r?.key_risks?.length > 0) {
-                                                    addSection('Key Risks');
-                                                    r.key_risks.forEach(risk => {
-                                                        addText(`[${risk.severity}/5] ${risk.risk}`, 9, 'bold', [180, 50, 50]);
-                                                        addText(`   Mitigation: ${risk.mitigation}`, 9, 'normal', [80, 80, 80]);
-                                                    });
-                                                }
-
-                                                // Competitors
-                                                if (r?.competitor_landscape?.length > 0) {
-                                                    addSection('Competitor Landscape');
-                                                    r.competitor_landscape.forEach(c => {
-                                                        addText(`${c.name} — ${c.positioning} [${c.threat_level}]`, 9, 'normal', [50, 50, 50]);
-                                                    });
-                                                }
-
-                                                // Next Steps
-                                                if (r?.recommended_next_steps?.length > 0) {
-                                                    addSection('Recommended Next Steps');
-                                                    r.recommended_next_steps.forEach((step, i) => {
-                                                        addText(`${i + 1}. ${step.action} (${step.timeline}) [${step.priority}]`, 9, 'normal', [50, 50, 50]);
-                                                    });
-                                                }
-
-                                                // Confidence
-                                                if (s?.overall_confidence_score) {
-                                                    addSection(`Confidence Score: ${s.overall_confidence_score.score}/100`);
-                                                    addText(s.overall_confidence_score.justification, 9, 'normal', [60, 60, 60]);
-                                                }
-
-                                                // Edge Cases
-                                                if (s?.edge_case_failures?.length > 0) {
-                                                    addSection('Edge Case Vulnerabilities');
-                                                    s.edge_case_failures.forEach(e => {
-                                                        const scenario = e.scenario || e;
-                                                        addText(`⚠ ${scenario}${e.impact ? ` [${e.impact}]` : ''}`, 9, 'normal', [180, 50, 50]);
-                                                    });
-                                                }
-
-                                                // Logical Flaws
-                                                if (s?.logical_flaws?.length > 0) {
-                                                    addSection('Logical Flaws');
-                                                    s.logical_flaws.forEach(f => {
-                                                        addText(f.flaw || f, 9, 'bold', [200, 120, 30]);
-                                                        if (f.explanation) addText(`   ${f.explanation}`, 9, 'normal', [80, 80, 80]);
-                                                        if (f.recommendation) addText(`   → ${f.recommendation}`, 9, 'normal', [40, 140, 80]);
-                                                    });
-                                                }
-
-                                                doc.save(`Audit_${companyName || 'Report'}.pdf`);
-                                            });
-                                        }}
-                                        className="flex items-center gap-2 text-xs font-bold text-obsidian bg-champagne hover:bg-[#B39B54] px-4 py-2 rounded-lg transition-colors"
-                                    >
-                                        <Download size={14} /> Export Audit PDF
-                                    </button>
                                 </div>
 
+                                {/* Sliding Views */}
+                                <div className="relative flex-1 overflow-hidden h-full">
+
+                                    {/* View 1: Analysis Matrix */}
+                                    <div
+                                        ref={resultsRef}
+                                        className={`absolute inset-0 w-full h-full overflow-y-auto pr-2 custom-scrollbar transition-transform duration-500 ease-in-out ${activeView === 'matrix' ? 'translate-x-0 opacity-100 z-10' : '-translate-x-[110%] opacity-0 z-0'}`}
+                                    >
+                                        <div className="space-y-4 text-left pb-4">
+
+                                            {/* Executive Summary */}
+                                            {results.research?.executive_summary && (
+                                                <div className="bg-slate/30 border border-ivory/10 rounded-xl p-6">
+                                                    <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3 flex items-center gap-2">
+                                                        <ShieldCheck size={14} /> Executive Summary
+                                                    </h4>
+                                                    <p className="text-ivory/80 text-sm leading-relaxed">{results.research.executive_summary}</p>
+                                                </div>
+                                            )}
+
+                                            {/* SWOT Analysis Grid */}
+                                            {results.research?.swot_analysis && (
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="bg-[#111116] border border-emerald-900/30 rounded-xl p-5">
+                                                        <h4 className="text-emerald-400 font-mono text-xs tracking-widest uppercase mb-3">↑ Strengths</h4>
+                                                        <ul className="space-y-2">
+                                                            {results.research.swot_analysis.strengths?.map((item, i) => (
+                                                                <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
+                                                                    <span className="text-emerald-400/50 mt-0.5">•</span> {item}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                    <div className="bg-[#111116] border border-red-900/30 rounded-xl p-5">
+                                                        <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-3">↓ Weaknesses</h4>
+                                                        <ul className="space-y-2">
+                                                            {results.research.swot_analysis.weaknesses?.map((item, i) => (
+                                                                <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
+                                                                    <span className="text-red-400/50 mt-0.5">•</span> {item}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                    <div className="bg-[#111116] border border-blue-900/30 rounded-xl p-5">
+                                                        <h4 className="text-blue-400 font-mono text-xs tracking-widest uppercase mb-3">◎ Opportunities</h4>
+                                                        <ul className="space-y-2">
+                                                            {results.research.swot_analysis.opportunities?.map((item, i) => (
+                                                                <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
+                                                                    <span className="text-blue-400/50 mt-0.5">•</span> {item}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                    <div className="bg-[#111116] border border-orange-900/30 rounded-xl p-5">
+                                                        <h4 className="text-orange-400 font-mono text-xs tracking-widest uppercase mb-3">⚠ Threats</h4>
+                                                        <ul className="space-y-2">
+                                                            {results.research.swot_analysis.threats?.map((item, i) => (
+                                                                <li key={i} className="text-ivory/70 text-xs leading-relaxed flex gap-2">
+                                                                    <span className="text-orange-400/50 mt-0.5">•</span> {item}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Key Risks */}
+                                            {results.research?.key_risks?.length > 0 && (
+                                                <div className="bg-[#111116] border border-red-900/30 rounded-xl p-5">
+                                                    <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-3">Key Risks</h4>
+                                                    <div className="space-y-3">
+                                                        {results.research.key_risks.map((r, i) => (
+                                                            <div key={i} className="flex items-start gap-3 text-sm">
+                                                                <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${r.severity >= 4 ? 'bg-red-500/20 text-red-400' : r.severity >= 3 ? 'bg-orange-500/20 text-orange-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                                                    {r.severity}/5
+                                                                </span>
+                                                                <div>
+                                                                    <span className="text-ivory/80">{r.risk}</span>
+                                                                    <p className="text-ivory/40 text-xs mt-1">↳ {r.mitigation}</p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Competitor Landscape */}
+                                            {results.research?.competitor_landscape?.length > 0 && (
+                                                <div className="bg-slate/30 border border-ivory/10 rounded-xl p-5">
+                                                    <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3">Competitor Landscape</h4>
+                                                    <div className="space-y-2">
+                                                        {results.research.competitor_landscape.map((c, i) => (
+                                                            <div key={i} className="flex items-center justify-between text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-ivory/5">
+                                                                <div>
+                                                                    <span className="text-ivory font-medium">{c.name}</span>
+                                                                    <p className="text-ivory/40 text-xs mt-0.5">{c.positioning}</p>
+                                                                </div>
+                                                                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${c.threat_level === 'High' ? 'bg-red-500/20 text-red-400' : c.threat_level === 'Medium' ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                                    {c.threat_level}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Recommended Next Steps */}
+                                            {results.research?.recommended_next_steps?.length > 0 && (
+                                                <div className="bg-slate/30 border border-ivory/10 rounded-xl p-5">
+                                                    <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3">Recommended Next Steps</h4>
+                                                    <div className="space-y-2">
+                                                        {results.research.recommended_next_steps.map((s, i) => (
+                                                            <div key={i} className="flex items-start gap-3 text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-ivory/5">
+                                                                <span className="text-champagne/60 font-mono text-xs mt-0.5">{i + 1}.</span>
+                                                                <div className="flex-1">
+                                                                    <span className="text-ivory/80">{s.action}</span>
+                                                                    <div className="flex gap-3 mt-1">
+                                                                        <span className="text-ivory/30 text-xs">⏱ {s.timeline}</span>
+                                                                        <span className={`text-[10px] font-bold uppercase ${s.priority === 'High' ? 'text-red-400' : s.priority === 'Medium' ? 'text-orange-400' : 'text-green-400'}`}>{s.priority}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Citations Section */}
+                                            {results.research?.citations?.length > 0 && (
+                                                <div className="bg-slate/30 border border-ivory/10 rounded-xl p-5 mb-4">
+                                                    <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3 flex items-center gap-2">
+                                                        <LinkIcon size={14} /> Citations & Sources
+                                                    </h4>
+                                                    <div className="space-y-3">
+                                                        {results.research.citations.map((cit, i) => (
+                                                            <div key={i} className="text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-ivory/5">
+                                                                <p className="text-ivory/80 font-medium mb-1">
+                                                                    <span className="text-champagne text-[10px] font-mono mr-2 bg-champagne/10 px-1.5 py-0.5 rounded">[Cit. {i + 1}]</span>
+                                                                    {cit.claim}
+                                                                </p>
+                                                                <a href={cit.url} target="_blank" rel="noopener noreferrer" className="text-champagne/60 text-xs hover:text-champagne hover:underline transition-colors break-all">
+                                                                    {cit.url}
+                                                                </a>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Confidence Score */}
+                                            {results.simulation?.overall_confidence_score && (
+                                                <div className="bg-slate/30 border border-champagne/20 rounded-xl p-5 flex items-center gap-6">
+                                                    <div className="relative w-20 h-20 shrink-0">
+                                                        <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+                                                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
+                                                            <circle cx="18" cy="18" r="15.5" fill="none" stroke={results.simulation.overall_confidence_score.score >= 70 ? '#34d399' : results.simulation.overall_confidence_score.score >= 40 ? '#fbbf24' : '#f87171'} strokeWidth="3" strokeDasharray={`${results.simulation.overall_confidence_score.score} 100`} strokeLinecap="round" />
+                                                        </svg>
+                                                        <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-ivory">{results.simulation.overall_confidence_score.score}</span>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-1">Confidence Score</h4>
+                                                        <p className="text-ivory/60 text-xs leading-relaxed">{results.simulation.overall_confidence_score.justification}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Edge Case Failures */}
+                                            {results.simulation?.edge_case_failures?.length > 0 && (
+                                                <div className="bg-[#111116] border border-red-900/40 rounded-xl p-5">
+                                                    <h4 className="text-red-400 font-mono text-xs tracking-widest uppercase mb-3">Edge Case Vulnerabilities</h4>
+                                                    <div className="space-y-2">
+                                                        {results.simulation.edge_case_failures.map((e, i) => (
+                                                            <div key={i} className="flex items-start justify-between gap-3 text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-red-900/20">
+                                                                <span className="text-ivory/70 text-xs leading-relaxed flex-1">{e.scenario || e}</span>
+                                                                {e.impact && <span className={`text-[10px] font-bold uppercase shrink-0 px-2 py-0.5 rounded ${e.impact === 'High' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>{e.impact}</span>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Logical Flaws */}
+                                            {results.simulation?.logical_flaws?.length > 0 && (
+                                                <div className="bg-[#111116] border border-orange-900/40 rounded-xl p-5">
+                                                    <h4 className="text-orange-400 font-mono text-xs tracking-widest uppercase mb-3">Logical Flaws</h4>
+                                                    <div className="space-y-3">
+                                                        {results.simulation.logical_flaws.map((f, i) => (
+                                                            <div key={i} className="text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-orange-900/20">
+                                                                <span className="text-ivory/80 font-medium">{f.flaw || f}</span>
+                                                                {f.explanation && <p className="text-ivory/40 text-xs mt-1">{f.explanation}</p>}
+                                                                {f.recommendation && <p className="text-emerald-400/70 text-xs mt-1">→ {f.recommendation}</p>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Export Button */}
+                                            <div className="pt-2 flex justify-end">
+                                                <button
+                                                    onClick={() => {
+                                                        import('jspdf').then(({ default: jsPDF }) => {
+                                                            const doc = new jsPDF();
+                                                            const margin = 20;
+                                                            let y = margin;
+                                                            const pageWidth = doc.internal.pageSize.getWidth();
+                                                            const maxWidth = pageWidth - margin * 2;
+
+                                                            const addText = (text, size = 10, style = 'normal', color = [33, 33, 33]) => {
+                                                                doc.setFontSize(size);
+                                                                doc.setFont('helvetica', style);
+                                                                doc.setTextColor(...color);
+                                                                const lines = doc.splitTextToSize(text, maxWidth);
+                                                                lines.forEach(line => {
+                                                                    if (y > 275) { doc.addPage(); y = margin; }
+                                                                    doc.text(line, margin, y);
+                                                                    y += size * 0.5;
+                                                                });
+                                                                y += 2;
+                                                            };
+
+                                                            const addSection = (title) => {
+                                                                y += 4;
+                                                                if (y > 265) { doc.addPage(); y = margin; }
+                                                                doc.setDrawColor(200, 170, 80);
+                                                                doc.line(margin, y, pageWidth - margin, y);
+                                                                y += 6;
+                                                                addText(title.toUpperCase(), 11, 'bold', [160, 130, 50]);
+                                                                y += 2;
+                                                            };
+
+                                                            // Header
+                                                            doc.setFillColor(15, 15, 20);
+                                                            doc.rect(0, 0, pageWidth, 40, 'F');
+                                                            doc.setTextColor(255, 255, 255);
+                                                            doc.setFontSize(20);
+                                                            doc.setFont('helvetica', 'bold');
+                                                            doc.text(`Audit Report: ${companyName || 'N/A'}`, margin, 22);
+                                                            doc.setFontSize(9);
+                                                            doc.setFont('helvetica', 'normal');
+                                                            doc.setTextColor(200, 200, 200);
+                                                            doc.text(`Generated ${new Date().toLocaleDateString()} | ${taskObjective}`, margin, 32);
+                                                            y = 50;
+
+                                                            const r = results.research;
+                                                            const s = results.simulation;
+
+                                                            // Executive Summary
+                                                            if (r?.executive_summary) {
+                                                                addSection('Executive Summary');
+                                                                addText(r.executive_summary, 10, 'normal', [50, 50, 50]);
+                                                            }
+
+                                                            // Citations
+                                                            if (r?.citations?.length > 0) {
+                                                                addSection('Sources & Citations');
+                                                                r.citations.forEach((cit, idx) => {
+                                                                    addText(`[Cit. ${idx + 1}] ${cit.claim}`, 9, 'bold', [160, 130, 50]);
+                                                                    addText(`   ↳ URL: ${cit.url}`, 8, 'normal', [100, 100, 100]);
+                                                                });
+                                                            }
+
+                                                            // SWOT
+                                                            if (r?.swot_analysis) {
+                                                                addSection('SWOT Analysis');
+                                                                ['strengths', 'weaknesses', 'opportunities', 'threats'].forEach(key => {
+                                                                    addText(key.charAt(0).toUpperCase() + key.slice(1), 10, 'bold', [80, 80, 80]);
+                                                                    r.swot_analysis[key]?.forEach(item => addText(`• ${item}`, 9, 'normal', [60, 60, 60]));
+                                                                    y += 2;
+                                                                });
+                                                            }
+
+                                                            // Key Risks
+                                                            if (r?.key_risks?.length > 0) {
+                                                                addSection('Key Risks');
+                                                                r.key_risks.forEach(risk => {
+                                                                    addText(`[${risk.severity}/5] ${risk.risk}`, 9, 'bold', [180, 50, 50]);
+                                                                    addText(`   Mitigation: ${risk.mitigation}`, 9, 'normal', [80, 80, 80]);
+                                                                });
+                                                            }
+
+                                                            // Competitors
+                                                            if (r?.competitor_landscape?.length > 0) {
+                                                                addSection('Competitor Landscape');
+                                                                r.competitor_landscape.forEach(c => {
+                                                                    addText(`${c.name} — ${c.positioning} [${c.threat_level}]`, 9, 'normal', [50, 50, 50]);
+                                                                });
+                                                            }
+
+                                                            // Next Steps
+                                                            if (r?.recommended_next_steps?.length > 0) {
+                                                                addSection('Recommended Next Steps');
+                                                                r.recommended_next_steps.forEach((step, i) => {
+                                                                    addText(`${i + 1}. ${step.action} (${step.timeline}) [${step.priority}]`, 9, 'normal', [50, 50, 50]);
+                                                                });
+                                                            }
+
+                                                            // Confidence
+                                                            if (s?.overall_confidence_score) {
+                                                                addSection(`Confidence Score: ${s.overall_confidence_score.score}/100`);
+                                                                addText(s.overall_confidence_score.justification, 9, 'normal', [60, 60, 60]);
+                                                            }
+
+                                                            // Edge Cases
+                                                            if (s?.edge_case_failures?.length > 0) {
+                                                                addSection('Edge Case Vulnerabilities');
+                                                                s.edge_case_failures.forEach(e => {
+                                                                    const scenario = e.scenario || e;
+                                                                    addText(`⚠ ${scenario}${e.impact ? ` [${e.impact}]` : ''}`, 9, 'normal', [180, 50, 50]);
+                                                                });
+                                                            }
+
+                                                            // Logical Flaws
+                                                            if (s?.logical_flaws?.length > 0) {
+                                                                addSection('Logical Flaws');
+                                                                s.logical_flaws.forEach(f => {
+                                                                    addText(f.flaw || f, 9, 'bold', [200, 120, 30]);
+                                                                    if (f.explanation) addText(`   ${f.explanation}`, 9, 'normal', [80, 80, 80]);
+                                                                    if (f.recommendation) addText(`   → ${f.recommendation}`, 9, 'normal', [40, 140, 80]);
+                                                                });
+                                                            }
+
+                                                            doc.save(`Audit_${companyName || 'Report'}.pdf`);
+                                                        });
+                                                    }}
+                                                    className="flex items-center gap-2 text-xs font-bold text-obsidian bg-champagne hover:bg-[#B39B54] px-4 py-2 rounded-lg transition-colors"
+                                                >
+                                                    <Download size={14} /> Export Audit PDF
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* View 2: Action Plan */}
+                                    <div
+                                        className={`absolute inset-0 w-full h-full flex flex-col transition-transform duration-500 ease-in-out ${activeView === 'plan' ? 'translate-x-0 opacity-100 z-10' : 'translate-x-[110%] opacity-0 z-0'}`}
+                                    >
+                                        <p className="text-sm text-ivory/50 mb-4 tracking-wide font-mono uppercase text-xs">
+                                            Compile solutions, notes, and strategic directives derived from the chat and analysis. Auto-saves to database.
+                                        </p>
+                                        <textarea
+                                            value={actionPlan}
+                                            onChange={(e) => setActionPlan(e.target.value)}
+                                            className="grow w-full bg-[#111116]/80 border border-ivory/10 focus:border-champagne/40 rounded-xl p-4 text-sm text-ivory/90 outline-none resize-none custom-scrollbar mb-4 transition-colors"
+                                            placeholder="Example: &#10;&#10;1. Pursue the AI healthcare risk mentioned in the SWOT threats.&#10;2. Draft marketing material specifically answering [Competitor X]'s positioning...&#10;&#10;All notes typed here are preserved."
+                                        />
+                                        <div className="flex justify-end">
+                                            <button
+                                                onClick={() => {
+                                                    import('jspdf').then(({ default: jsPDF }) => {
+                                                        const doc = new jsPDF();
+                                                        doc.setFillColor(15, 15, 20);
+                                                        doc.rect(0, 0, doc.internal.pageSize.getWidth(), 40, 'F');
+                                                        doc.setTextColor(255, 255, 255);
+                                                        doc.setFontSize(20);
+                                                        doc.setFont('helvetica', 'bold');
+                                                        doc.text(`Action Plan: ${companyName || 'N/A'}`, 20, 22);
+                                                        doc.setFontSize(9);
+                                                        doc.setFont('helvetica', 'normal');
+                                                        doc.setTextColor(200, 200, 200);
+                                                        doc.text(`Generated ${new Date().toLocaleDateString()}`, 20, 32);
+
+                                                        doc.setTextColor(50, 50, 50);
+                                                        doc.setFontSize(10);
+                                                        const lines = doc.splitTextToSize(actionPlan || "No plan recorded.", doc.internal.pageSize.getWidth() - 40);
+                                                        let y = 50;
+                                                        lines.forEach(line => {
+                                                            if (y > 275) { doc.addPage(); y = 20; }
+                                                            doc.text(line, 20, y);
+                                                            y += 6;
+                                                        });
+                                                        doc.save(`ActionPlan_${companyName || 'Report'}.pdf`);
+                                                    });
+                                                }}
+                                                disabled={!actionPlan.trim()}
+                                                className="flex items-center gap-2 text-xs font-bold text-obsidian bg-ivory/90 hover:bg-white disabled:bg-ivory/20 disabled:text-ivory/50 px-4 py-2 rounded-lg transition-colors"
+                                            >
+                                                <Download size={14} /> Download Plan PDF
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                </div>
                             </div>
                         )}
 

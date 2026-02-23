@@ -12,7 +12,8 @@ CREATE TABLE research_data (
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
   query TEXT NOT NULL,
   summary JSONB NOT NULL,
-  documents_text TEXT
+  documents_text TEXT,
+  plan TEXT
 );
 
 CREATE TABLE citations (
