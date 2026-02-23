@@ -39,6 +39,9 @@ export default async function handler(req, res) {
         if (researchData) {
             contextString += `\nTarget Query: ${researchData.query}\n`;
             contextString += `Research Summary: ${JSON.stringify(researchData.summary)}\n`;
+            if (researchData.documents_text) {
+                contextString += `\nUploaded Source Documents Context:\n${researchData.documents_text}\n`;
+            }
         }
         if (simulationData && simulationData.predictions) {
             contextString += `\nEdge Case Failures: ${JSON.stringify(simulationData.predictions.edge_case_failures)}\n`;

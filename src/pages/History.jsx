@@ -101,8 +101,8 @@ const History = () => {
                                 key={project.id}
                                 className="project-card group bg-slate/20 border border-ivory/8 rounded-xl px-6 py-5 hover:border-champagne/30 hover:bg-slate/30 transition-all cursor-pointer flex items-center justify-between"
                                 onClick={() => {
-                                    // For now, navigate to workspace — project loading can be added later
-                                    navigate('/workspace');
+                                    // Navigate to workspace with project ID to load historical data
+                                    navigate(`/workspace?projectId=${project.id}`);
                                 }}
                             >
                                 <div className="flex items-start gap-4 flex-1 min-w-0">

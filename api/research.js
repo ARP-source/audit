@@ -23,13 +23,34 @@ export default async function handler(req, res) {
         const objectiveMatch = query.match(/Task\/Objective:\s*(.+)/);
         const objective = objectiveMatch ? objectiveMatch[1].trim() : '';
 
-        // Run 4 parallel targeted Tavily searches for deeper research
-        const searchQueries = [
-            { label: 'Company Overview', q: `${company} company overview background history` },
-            { label: 'Competitive Landscape', q: `${company} competitors market share industry` },
-            { label: 'Industry Trends', q: `${company} ${objective} industry trends 2024 2025` },
-            { label: 'Risks & News', q: `${company} risks challenges recent news` }
-        ];
+        // Run 4 targeted Tavily searches based on dynamic query generation
+        const dynamicQueryPrompt = `Analyze the following research objective and generate 4 highly specific Google search queries to gather the necessary intelligence. 
+        Company: ${company}
+        Objective: ${objective}
+        
+        Return STRICTLY a JSON array of 4 objects with this exact structure:
+        [
+            { "label": "Brief topic label", "q": "The specific search query string" }
+        ]`;
+
+        const queryGenData = await callGemini({
+            systemInstruction: { parts: [{ text: "You are an expert open-source intelligence researcher. Generate concise, highly effective search engine queries." }] },
+            contents: [{ role: 'user', parts: [{ text: dynamicQueryPrompt }] }],
+            generationConfig: { responseMimeType: 'application/json' }
+        });
+
+        let searchQueries;
+        try {
+            searchQueries = JSON.parse(queryGenData.candidates[0].content.parts[0].text);
+        } catch (e) {
+            console.error("Failed to parse dynamic queries, falling back to defaults", e);
+            searchQueries = [
+                { label: 'Company Overview', q: `${company} company overview background history` },
+                { label: 'Competitive Landscape', q: `${company} competitors market share industry` },
+                { label: 'Industry Trends', q: `${company} ${objective} industry trends 2024 2025` },
+                { label: 'Risks & News', q: `${company} risks challenges recent news` }
+            ];
+        }
 
         const searchPromises = searchQueries.map(({ label, q }) =>
             fetch('https://api.tavily.com/search', {
@@ -95,7 +116,8 @@ Provide 3-5 items per array. severity is 1-5 (5 = critical). Be specific and dat
         const { error: researchError } = await supabase.from('research_data').insert({
             project_id: projectId,
             query,
-            summary: parsed
+            summary: parsed,
+            documents_text: documentText || null // Store documents for future chat context
         });
         if (researchError) console.error("Research insert error:", researchError);
 

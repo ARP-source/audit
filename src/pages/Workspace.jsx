@@ -1,13 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { Loader2, UploadCloud, Send, FileText, Briefcase, Target, ShieldCheck, ArrowLeft, Download, Lightbulb } from 'lucide-react';
+import { Loader2, UploadCloud, Send, FileText, Briefcase, Target, ShieldCheck, ArrowLeft, Download, Lightbulb, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
 const Workspace = () => {
     const resultsRef = useRef(null);
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, session } = useAuth();
 
     // Form State
@@ -29,6 +30,66 @@ const Workspace = () => {
     const [chatHistory, setChatHistory] = useState([
         { role: 'system', text: 'Workspace initialized. Awaiting input for Audit execution.' }
     ]);
+
+    // Check for history load on mount
+    useEffect(() => {
+        const queryParams = new URLSearchParams(location.search);
+        const historyProjectId = queryParams.get('projectId');
+
+        if (historyProjectId) {
+            const loadHistoricalData = async () => {
+                setLoadingState("simulate"); // Show a generic loading state
+                setCurrentProjectId(historyProjectId);
+
+                try {
+                    // Fetch Research Data
+                    const { data: rd, error: rErr } = await supabase
+                        .from('research_data')
+                        .select('summary, query')
+                        .eq('project_id', historyProjectId)
+                        .single();
+
+                    if (rErr) throw rErr;
+
+                    // Fetch Simulation Data
+                    const { data: sd, error: sErr } = await supabase
+                        .from('simulations')
+                        .select('predictions')
+                        .eq('project_id', historyProjectId)
+                        .single();
+
+                    if (sErr) throw sErr;
+
+                    // Parse original inputs if possible to populate fields
+                    const companyMatch = rd.query?.match(/Company:\s*([^.]+)/);
+                    if (companyMatch) setCompanyName(companyMatch[1].trim());
+
+                    const objectiveMatch = rd.query?.match(/Task\/Objective:\s*(.+)/);
+                    if (objectiveMatch) setTaskObjective(objectiveMatch[1].trim());
+
+                    setResults({
+                        research: rd.summary,
+                        simulation: sd.predictions
+                    });
+
+                    setLoadingState("complete");
+
+                    setTimeout(() => {
+                        if (resultsRef.current) {
+                            gsap.from(resultsRef.current.children, { y: 20, opacity: 0, stagger: 0.1, duration: 0.8, ease: 'power3.out' });
+                        }
+                    }, 100);
+
+                } catch (err) {
+                    console.error("Error loading historical project", err);
+                    setErrorMsg("Failed to load historical audit data.");
+                    setLoadingState("error");
+                }
+            };
+
+            loadHistoricalData();
+        }
+    }, [location.search]);
 
     // Load chat history when projectId is set
     useEffect(() => {
@@ -502,6 +563,28 @@ const Workspace = () => {
                                     </div>
                                 )}
 
+                                {/* Citations Section */}
+                                {results.research?.citations?.length > 0 && (
+                                    <div className="bg-slate/30 border border-ivory/10 rounded-xl p-5 mb-4">
+                                        <h4 className="text-champagne font-mono text-xs tracking-widest uppercase mb-3 flex items-center gap-2">
+                                            <LinkIcon size={14} /> Citations & Sources
+                                        </h4>
+                                        <div className="space-y-3">
+                                            {results.research.citations.map((cit, i) => (
+                                                <div key={i} className="text-sm bg-obsidian/40 rounded-lg px-4 py-3 border border-ivory/5">
+                                                    <p className="text-ivory/80 font-medium mb-1">
+                                                        <span className="text-champagne text-[10px] font-mono mr-2 bg-champagne/10 px-1.5 py-0.5 rounded">[Cit. {i + 1}]</span>
+                                                        {cit.claim}
+                                                    </p>
+                                                    <a href={cit.url} target="_blank" rel="noopener noreferrer" className="text-champagne/60 text-xs hover:text-champagne hover:underline transition-colors break-all">
+                                                        {cit.url}
+                                                    </a>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Confidence Score */}
                                 {results.simulation?.overall_confidence_score && (
                                     <div className="bg-slate/30 border border-champagne/20 rounded-xl p-5 flex items-center gap-6">
@@ -604,6 +687,15 @@ const Workspace = () => {
                                                 if (r?.executive_summary) {
                                                     addSection('Executive Summary');
                                                     addText(r.executive_summary, 10, 'normal', [50, 50, 50]);
+                                                }
+
+                                                // Citations
+                                                if (r?.citations?.length > 0) {
+                                                    addSection('Sources & Citations');
+                                                    r.citations.forEach((cit, idx) => {
+                                                        addText(`[Cit. ${idx + 1}] ${cit.claim}`, 9, 'bold', [160, 130, 50]);
+                                                        addText(`   ↳ URL: ${cit.url}`, 8, 'normal', [100, 100, 100]);
+                                                    });
                                                 }
 
                                                 // SWOT

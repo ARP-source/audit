@@ -11,7 +11,8 @@ CREATE TABLE research_data (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
   query TEXT NOT NULL,
-  summary JSONB NOT NULL
+  summary JSONB NOT NULL,
+  documents_text TEXT
 );
 
 CREATE TABLE citations (
@@ -38,20 +39,20 @@ CREATE POLICY "Allow authenticated select projects" ON projects FOR SELECT USING
 CREATE POLICY "Allow authenticated update projects" ON projects FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Allow authenticated delete projects" ON projects FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY "Allow anon select research_data" ON research_data FOR SELECT USING (true);
-CREATE POLICY "Allow anon insert research_data" ON research_data FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow anon update research_data" ON research_data FOR UPDATE USING (true);
-CREATE POLICY "Allow anon delete research_data" ON research_data FOR DELETE USING (true);
+CREATE POLICY "Allow authenticated select research_data" ON research_data FOR SELECT USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated insert research_data" ON research_data FOR INSERT WITH CHECK (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated update research_data" ON research_data FOR UPDATE USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated delete research_data" ON research_data FOR DELETE USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
 
-CREATE POLICY "Allow anon select citations" ON citations FOR SELECT USING (true);
-CREATE POLICY "Allow anon insert citations" ON citations FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow anon update citations" ON citations FOR UPDATE USING (true);
-CREATE POLICY "Allow anon delete citations" ON citations FOR DELETE USING (true);
+CREATE POLICY "Allow authenticated select citations" ON citations FOR SELECT USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated insert citations" ON citations FOR INSERT WITH CHECK (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated update citations" ON citations FOR UPDATE USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated delete citations" ON citations FOR DELETE USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
 
-CREATE POLICY "Allow anon select simulations" ON simulations FOR SELECT USING (true);
-CREATE POLICY "Allow anon insert simulations" ON simulations FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow anon update simulations" ON simulations FOR UPDATE USING (true);
-CREATE POLICY "Allow anon delete simulations" ON simulations FOR DELETE USING (true);
+CREATE POLICY "Allow authenticated select simulations" ON simulations FOR SELECT USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated insert simulations" ON simulations FOR INSERT WITH CHECK (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated update simulations" ON simulations FOR UPDATE USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated delete simulations" ON simulations FOR DELETE USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
 
 CREATE TABLE chat_messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -63,5 +64,5 @@ CREATE TABLE chat_messages (
 
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow anon select chat_messages" ON chat_messages FOR SELECT USING (true);
-CREATE POLICY "Allow anon insert chat_messages" ON chat_messages FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow authenticated select chat_messages" ON chat_messages FOR SELECT USING (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
+CREATE POLICY "Allow authenticated insert chat_messages" ON chat_messages FOR INSERT WITH CHECK (project_id IN (SELECT id FROM projects WHERE user_id = auth.uid()));
