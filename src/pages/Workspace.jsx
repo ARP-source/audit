@@ -41,18 +41,22 @@ const Workspace = () => {
         const queryParams = new URLSearchParams(location.search);
         const historyProjectId = queryParams.get('projectId');
 
-        if (historyProjectId) {
+        if (historyProjectId && user) {
             const loadHistoricalData = async () => {
                 setLoadingState("simulate"); // Show a generic loading state
                 setCurrentProjectId(historyProjectId);
 
                 try {
+                    console.log(`[Workspace Load] Attempting to load history for ID: ${historyProjectId} as User: ${user.id}`);
+
                     // Fetch Research Data
                     const { data: rd, error: rErr } = await supabase
                         .from('research_data')
                         .select('summary, query, plan')
                         .eq('project_id', historyProjectId)
                         .maybeSingle();
+
+                    console.log(`[Workspace Load] Research Data Result:`, { rd, rErr });
 
                     if (rErr) throw rErr;
 
@@ -71,6 +75,8 @@ const Workspace = () => {
                         .select('predictions, inputs')
                         .eq('project_id', historyProjectId)
                         .maybeSingle();
+
+                    console.log(`[Workspace Load] Simulation Data Result:`, { sd, sErr });
 
                     if (sErr) throw sErr;
 
@@ -104,7 +110,7 @@ const Workspace = () => {
 
             loadHistoricalData();
         }
-    }, [location.search]);
+    }, [location.search, user]);
 
     // Load chat history when projectId is set
     useEffect(() => {
