@@ -78,7 +78,14 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/history" element={<History />} />
+              <Route
+                path="/history"
+                element={
+                  <ProtectedRoute>
+                    <History />
+                  </ProtectedRoute>
+                }
+              />
             </Routes>
 
             <CitationDrawer />
