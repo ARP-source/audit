@@ -36,18 +36,25 @@ const Workspace = () => {
         { role: 'system', text: 'Workspace initialized. Awaiting input for Audit execution.' }
     ]);
 
+    const queryParams = new URLSearchParams(location.search);
+    const historyProjectId = queryParams.get('projectId');
+
+    console.log("[Workspace Render]", {
+        search: location.search,
+        historyProjectId,
+        hasUser: !!user,
+        userId: user?.id
+    });
+
     // Check for history load on mount
     useEffect(() => {
-        const queryParams = new URLSearchParams(location.search);
-        const historyProjectId = queryParams.get('projectId');
-
-        if (historyProjectId && user) {
+        if (historyProjectId) {
             const loadHistoricalData = async () => {
                 setLoadingState("simulate"); // Show a generic loading state
                 setCurrentProjectId(historyProjectId);
 
                 try {
-                    console.log(`[Workspace Load] Attempting to load history for ID: ${historyProjectId} as User: ${user.id}`);
+                    console.log(`[Workspace Load] Attempting to load history for ID: ${historyProjectId} as User: ${user?.id}`);
 
                     // Fetch Research Data
                     const { data: rd, error: rErr } = await supabase
@@ -110,7 +117,7 @@ const Workspace = () => {
 
             loadHistoricalData();
         }
-    }, [location.search, user]);
+    }, [location.search]);
 
     // Load chat history when projectId is set
     useEffect(() => {
