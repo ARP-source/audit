@@ -21,6 +21,8 @@ export const CitationContext = createContext({
   closeCitation: () => { }
 });
 
+import Profile from './pages/Profile';
+
 // Scroll to top on route change Helper
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -33,7 +35,7 @@ const ScrollToTop = () => {
 // Hide Navbar on workspace and auth pages
 const NavbarWrapper = () => {
   const { pathname } = useLocation();
-  if (pathname === '/workspace' || pathname === '/auth' || pathname === '/hub') return null;
+  if (pathname === '/workspace' || pathname === '/auth' || pathname === '/hub' || pathname === '/profile') return null;
   return <Navbar />;
 }
 
@@ -83,6 +85,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <History />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
                   </ProtectedRoute>
                 }
               />

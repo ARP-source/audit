@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { ArrowLeft, Clock, Briefcase, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Clock, Briefcase, ChevronRight, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const History = () => {
@@ -47,6 +47,25 @@ const History = () => {
             hour: '2-digit',
             minute: '2-digit'
         });
+    };
+
+    const handleDelete = async (e, id) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure you want to delete this audit? This action cannot be undone.")) return;
+
+        const previousProjects = [...projects];
+        setProjects(projects.filter(p => p.id !== id));
+
+        const { error } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting project:', error);
+            alert("Failed to delete audit.");
+            setProjects(previousProjects);
+        }
     };
 
     return (
@@ -99,13 +118,13 @@ const History = () => {
                         {projects.map((project) => (
                             <div
                                 key={project.id}
-                                className="project-card group bg-slate/20 border border-ivory/8 rounded-xl px-6 py-5 hover:border-champagne/30 hover:bg-slate/30 transition-all cursor-pointer flex items-center justify-between"
+                                className="project-card group bg-slate/20 border border-ivory/8 rounded-xl px-4 py-4 hover:border-champagne/30 hover:bg-slate/30 transition-all cursor-pointer flex items-center justify-between"
                                 onClick={() => {
                                     // Navigate to workspace with project ID to load historical data
                                     navigate(`/workspace?projectId=${project.id}`);
                                 }}
                             >
-                                <div className="flex items-start gap-4 flex-1 min-w-0">
+                                <div className="flex items-start gap-4 flex-1 min-w-0 pl-2">
                                     <div className="w-10 h-10 rounded-lg bg-champagne/10 flex items-center justify-center shrink-0 mt-0.5">
                                         <Briefcase size={16} className="text-champagne" />
                                     </div>
@@ -121,7 +140,18 @@ const History = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <ChevronRight size={16} className="text-ivory/15 group-hover:text-champagne/50 transition-colors shrink-0" />
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={(e) => handleDelete(e, project.id)}
+                                        className="p-2 text-ivory/20 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                        title="Delete Audit"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                    <div className="p-2">
+                                        <ChevronRight size={16} className="text-ivory/15 group-hover:text-champagne/50 transition-colors shrink-0" />
+                                    </div>
+                                </div>
                             </div>
                         ))}
                     </div>

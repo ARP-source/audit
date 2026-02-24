@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { ArrowLeft, Clock, Briefcase, ChevronRight, Plus, LogOut } from 'lucide-react';
+import { ArrowLeft, Clock, Briefcase, ChevronRight, Plus, LogOut, Trash2, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -56,6 +56,26 @@ const ProjectHub = () => {
         navigate('/');
     };
 
+    const handleDelete = async (e, id) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure you want to delete this context? This cannot be undone.")) return;
+
+        // Optimistic UI update
+        const previousProjects = [...projects];
+        setProjects(projects.filter(p => p.id !== id));
+
+        const { error } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting project:', error);
+            alert("Failed to delete context.");
+            setProjects(previousProjects); // Revert on failure
+        }
+    };
+
     return (
         <div className="min-h-screen bg-obsidian text-ivory px-6 pt-28 pb-16">
             <div className="max-w-4xl mx-auto">
@@ -75,13 +95,22 @@ const ProjectHub = () => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleSignOut}
-                        className="flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-ivory/40 hover:text-red-400 transition-colors bg-slate/20 px-4 py-2 rounded-lg border border-ivory/5 hover:border-red-400/30"
-                    >
-                        <LogOut size={14} />
-                        Sign Out
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => navigate('/profile')}
+                            className="flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-ivory/40 hover:text-champagne transition-colors bg-slate/20 px-4 py-2 rounded-lg border border-ivory/5 hover:border-champagne/30"
+                        >
+                            <User size={14} />
+                            Profile
+                        </button>
+                        <button
+                            onClick={handleSignOut}
+                            className="flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-ivory/40 hover:text-red-400 transition-colors bg-slate/20 px-4 py-2 rounded-lg border border-ivory/5 hover:border-red-400/30"
+                        >
+                            <LogOut size={14} />
+                            Sign Out
+                        </button>
+                    </div>
                 </div>
 
                 {/* Primary Action: New Project */}
@@ -121,10 +150,10 @@ const ProjectHub = () => {
                             {projects.map((project) => (
                                 <div
                                     key={project.id}
-                                    className="hub-element group bg-slate/20 border border-ivory/10 rounded-xl px-6 py-5 hover:border-ivory/30 hover:bg-slate/30 transition-all cursor-pointer flex items-center justify-between"
+                                    className="hub-element group bg-slate/20 border border-ivory/10 rounded-xl px-4 py-4 hover:border-ivory/30 hover:bg-slate/30 transition-all cursor-pointer flex items-center justify-between"
                                     onClick={() => navigate(`/workspace?projectId=${project.id}`)}
                                 >
-                                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                                    <div className="flex items-start gap-4 flex-1 min-w-0 pl-2">
                                         <div className="min-w-0">
                                             <h3 className="text-ivory font-medium text-[15px] truncate group-hover:text-champagne transition-colors">
                                                 {project.title}
@@ -137,7 +166,18 @@ const ProjectHub = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <ChevronRight size={18} className="text-ivory/20 group-hover:text-champagne group-hover:translate-x-1 transition-all shrink-0" />
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={(e) => handleDelete(e, project.id)}
+                                            className="p-2 text-ivory/20 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                            title="Delete Context"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                        <div className="p-2">
+                                            <ChevronRight size={18} className="text-ivory/20 group-hover:text-champagne transition-all" />
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
