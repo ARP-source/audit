@@ -52,32 +52,41 @@ const Workspace = () => {
                         .from('research_data')
                         .select('summary, query, plan')
                         .eq('project_id', historyProjectId)
-                        .single();
+                        .maybeSingle();
 
                     if (rErr) throw rErr;
+
+                    if (rd) {
+                        // Parse original inputs if possible to populate fields
+                        const companyMatch = rd.query?.match(/Company:\s*([^.]+)/);
+                        if (companyMatch) setCompanyName(companyMatch[1].trim());
+
+                        const objectiveMatch = rd.query?.match(/Task\/Objective:\s*(.+)/);
+                        if (objectiveMatch) setTaskObjective(objectiveMatch[1].trim());
+                    }
 
                     // Fetch Simulation Data
                     const { data: sd, error: sErr } = await supabase
                         .from('simulations')
-                        .select('predictions')
+                        .select('predictions, inputs')
                         .eq('project_id', historyProjectId)
-                        .single();
+                        .maybeSingle();
 
                     if (sErr) throw sErr;
 
-                    // Parse original inputs if possible to populate fields
-                    const companyMatch = rd.query?.match(/Company:\s*([^.]+)/);
-                    if (companyMatch) setCompanyName(companyMatch[1].trim());
-
-                    const objectiveMatch = rd.query?.match(/Task\/Objective:\s*(.+)/);
-                    if (objectiveMatch) setTaskObjective(objectiveMatch[1].trim());
+                    if (sd && sd.inputs?.proposedSolution) {
+                        const solution = sd.inputs.proposedSolution;
+                        if (typeof solution === 'string' && !solution.startsWith('{"executive_summary"')) {
+                            setProposedStrategy(solution);
+                        }
+                    }
 
                     setResults({
-                        research: rd.summary,
-                        simulation: sd.predictions
+                        research: rd?.summary || null,
+                        simulation: sd?.predictions || null
                     });
 
-                    if (rd.plan) setActionPlan(rd.plan);
+                    if (rd?.plan) setActionPlan(rd.plan);
                     setLoadingState("complete");
 
                     setTimeout(() => {
