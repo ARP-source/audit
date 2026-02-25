@@ -46,15 +46,16 @@ const Workspace = () => {
         userId: user?.id
     });
 
-    // Check for history load on mount
+    // Check for history load on mount / auth resolution
     useEffect(() => {
-        if (historyProjectId) {
+        // Wait until AuthContext finishes loading and we have a user
+        if (historyProjectId && !loading && user) {
             const loadHistoricalData = async () => {
                 setLoadingState("simulate"); // Show a generic loading state
                 setCurrentProjectId(historyProjectId);
 
                 try {
-                    console.log(`[Workspace Load] Attempting to load history for ID: ${historyProjectId} as User: ${user?.id}`);
+                    console.log(`[Workspace Load] Attempting to load history for ID: ${historyProjectId} as User: ${user.id}`);
 
                     // Fetch Research Data
                     const { data: rd, error: rErr } = await supabase
@@ -116,8 +117,11 @@ const Workspace = () => {
             };
 
             loadHistoricalData();
+        } else if (historyProjectId && !loading && !user) {
+            // If finished loading but no user, redirect to auth (though ProtectedRoute should catch this)
+            navigate('/auth');
         }
-    }, [location.search]);
+    }, [location.search, user, loading, navigate]);
 
     // Load chat history when projectId is set
     useEffect(() => {
