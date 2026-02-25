@@ -110,7 +110,7 @@ const Workspace = () => {
 
                 } catch (err) {
                     console.error("Error loading historical project", err);
-                    setErrorMsg("Failed to load historical audit data.");
+                    setErrorMsg(`Failed to load historical audit data: ${err.message || err.details || JSON.stringify(err)}`);
                     setLoadingState("error");
                 }
             };
